@@ -42,10 +42,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spiderybook.tunerlucky.data.StatsData
+import com.spiderybook.tunerlucky.domain.managers.PerformanceManager
 import com.spiderybook.tunerlucky.domain.managers.StatsMonitor
 import com.spiderybook.tunerlucky.ui.theme.AccentBlue
 import com.spiderybook.tunerlucky.ui.theme.DangerRed
 import com.spiderybook.tunerlucky.ui.theme.GlassOverlay
+import com.spiderybook.tunerlucky.ui.theme.SurfaceCard
 import com.spiderybook.tunerlucky.ui.theme.TextPrimary
 import com.spiderybook.tunerlucky.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
@@ -58,6 +60,7 @@ fun OverlayMenu(
 ) {
     val context = LocalContext.current
     val statsMonitor = remember { StatsMonitor(context) }
+    val performanceManager = remember { PerformanceManager() }
 
     var stats by remember {
         mutableStateOf(
@@ -91,7 +94,8 @@ fun OverlayMenu(
                 onMinimize = {
                     isExpanded = false
                     onExpandedChange(false)
-                }
+                },
+                performanceManager = performanceManager
             )
         } else {
             FloatingGameSpaceButton(
@@ -153,7 +157,8 @@ private fun LeftWing(
 @Composable
 private fun RightWing(
     onClose: () -> Unit,
-    onMinimize: () -> Unit
+    onMinimize: () -> Unit,
+    performanceManager: PerformanceManager
 ) {
     Column(
         modifier = Modifier
@@ -168,10 +173,10 @@ private fun RightWing(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.End
     ) {
-        OverlayActionCard("BOOST", Icons.Default.Speed)
-        OverlayActionCard("RAM", Icons.Default.Memory)
-        OverlayActionCard("WIFI", Icons.Default.NetworkWifi)
-        OverlayActionCard("PROFILE", Icons.Default.Tune)
+        OverlayActionCard("BOOST", Icons.Default.Speed) { performanceManager.enableBoost() }
+        OverlayActionCard("RAM", Icons.Default.Memory) { performanceManager.clearRam() }
+        OverlayActionCard("WIFI", Icons.Default.NetworkWifi) { performanceManager.enableWifiGaming() }
+        OverlayActionCard("PROFILE", Icons.Default.Tune) { performanceManager.applyProfile(com.spiderybook.tunerlucky.data.PerformanceProfile.BALANCED) }
 
         Card(
             colors = CardDefaults.cardColors(containerColor = SurfaceCard),
@@ -235,10 +240,13 @@ private fun OverlayStatCard(
 @Composable
 private fun OverlayActionCard(
     title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.width(160.dp),
+        modifier = Modifier
+            .width(160.dp)
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = GlassOverlay),
         shape = RoundedCornerShape(20.dp)
     ) {

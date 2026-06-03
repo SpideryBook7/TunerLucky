@@ -8,7 +8,9 @@ import kotlin.system.exitProcess
 class ShellService : IShellService.Stub() {
     override fun runCommand(cmd: String): String {
         return try {
-            val process = Runtime.getRuntime().exec(cmd)
+            val process = ProcessBuilder("sh", "-c", cmd)
+                .redirectErrorStream(true)
+                .start()
             val reader = BufferedReader(InputStreamReader(process.inputStream))
             val output = StringBuilder()
             var line: String?

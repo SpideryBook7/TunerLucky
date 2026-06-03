@@ -92,11 +92,16 @@ class StatsMonitor(
 
     private fun readFps(): String {
         val output = ShizukuManager.runCommand("dumpsys SurfaceFlinger --latency")
-        return if (output.startsWith("Service not connected") || output.startsWith("Error")) {
-            "N/A"
-        } else {
-            "SurfaceFlinger"
+        if (output.startsWith("Service not connected") || output.startsWith("Error") || output.isBlank()) {
+            return "N/A"
         }
+        val lines = output.lines()
+        val refreshPeriod = lines.firstOrNull()?.trim()?.toLongOrNull()
+        if (refreshPeriod != null && refreshPeriod > 0) {
+            val fps = (1_000_000_000.0 / refreshPeriod).roundToInt()
+            return "$fps"
+        }
+        return "N/A"
     }
 
     private fun File.readLongOrNull(): Long? =
