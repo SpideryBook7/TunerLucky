@@ -49,6 +49,7 @@ import com.spiderybook.tunerlucky.domain.managers.StatsMonitor
 import com.spiderybook.tunerlucky.ui.theme.AccentBlue
 import com.spiderybook.tunerlucky.ui.theme.DangerRed
 import com.spiderybook.tunerlucky.ui.theme.GlassOverlay
+import com.spiderybook.tunerlucky.ui.theme.BackgroundBlack
 import com.spiderybook.tunerlucky.ui.theme.SurfaceCard
 import com.spiderybook.tunerlucky.ui.theme.TextPrimary
 import com.spiderybook.tunerlucky.ui.theme.TextSecondary
@@ -87,18 +88,27 @@ fun OverlayMenu(
     }
 
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = if (isExpanded) Modifier.fillMaxHeight().wrapContentWidth() else Modifier.wrapContentSize(),
+        contentAlignment = Alignment.CenterEnd
     ) {
         if (isExpanded) {
-            LeftWing(stats = stats)
-            RightWing(
-                onClose = { onClose() },
-                onMinimize = {
-                    isExpanded = false
-                    onExpandedChange(false)
-                },
-                performanceManager = performanceManager
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .wrapContentWidth()
+                    .background(BackgroundBlack.copy(alpha = 0.95f))
+                    .padding(horizontal = 8.dp)
+            ) {
+                LeftWing(stats = stats)
+                RightWing(
+                    onClose = { onClose() },
+                    onMinimize = {
+                        isExpanded = false
+                        onExpandedChange(false)
+                    },
+                    performanceManager = performanceManager
+                )
+            }
         } else {
             FloatingGameSpaceButton(
                 fps = stats.fps,

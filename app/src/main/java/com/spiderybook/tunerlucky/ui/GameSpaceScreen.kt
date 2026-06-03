@@ -206,17 +206,25 @@ fun GameSpaceScreen() {
                         stats = stats,
                         onSelected = { selectedPackage = it.packageName },
                         onLaunch = { game ->
-                            scope.launch {
-                                libraryManager.markPlayed(game.packageName)
-                                libraryManager.addLog("${game.name} iniciado")
-                                performanceManager.applyProfile(game.profile)
-                                libraryManager.addLog("Perfil ${game.profile.name} aplicado")
+                            if (!android.provider.Settings.canDrawOverlays(context)) {
+                                val intent = Intent(
+                                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    android.net.Uri.parse("package:${context.packageName}")
+                                )
+                                context.startActivity(intent)
+                                scope.launch { libraryManager.addLog("Requiere permiso de superposicion") }
+                            } else {
+                                scope.launch {
+                                    libraryManager.markPlayed(game.packageName)
+                                    libraryManager.addLog("${game.name} iniciado")
+                                    performanceManager.applyProfile(game.profile)
+                                    libraryManager.addLog("Perfil ${game.profile.name} aplicado")
+                                }
+                                context.packageManager.getLaunchIntentForPackage(game.packageName)?.let {
+                                    context.startActivity(it)
+                                }
+                                context.startForegroundService(Intent(context, OverlayService::class.java))
                             }
-                            ShizukuManager.runCommand("appops set com.spiderybook.tunerlucky SYSTEM_ALERT_WINDOW allow")
-                            context.packageManager.getLaunchIntentForPackage(game.packageName)?.let {
-                                context.startActivity(it)
-                            }
-                            context.startForegroundService(Intent(context, OverlayService::class.java))
                         },
                         onAdd = { showAddGame = true }
                     )
