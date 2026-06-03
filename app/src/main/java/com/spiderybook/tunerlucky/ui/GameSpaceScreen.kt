@@ -212,6 +212,7 @@ fun GameSpaceScreen() {
                                 performanceManager.applyProfile(game.profile)
                                 libraryManager.addLog("Perfil ${game.profile.name} aplicado")
                             }
+                            ShizukuManager.runCommand("appops set com.spiderybook.tunerlucky SYSTEM_ALERT_WINDOW allow")
                             context.packageManager.getLaunchIntentForPackage(game.packageName)?.let {
                                 context.startActivity(it)
                             }

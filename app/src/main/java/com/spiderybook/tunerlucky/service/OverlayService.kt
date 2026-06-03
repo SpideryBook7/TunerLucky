@@ -102,7 +102,7 @@ class OverlayService :
             PixelFormat.TRANSLUCENT
         )
 
-        params?.gravity = Gravity.TOP or Gravity.START
+        params?.gravity = Gravity.CENTER_VERTICAL or Gravity.END
 
         val composeView = ComposeView(this).apply {
             setViewTreeLifecycleOwner(this@OverlayService)

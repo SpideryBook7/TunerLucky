@@ -28,6 +28,8 @@ import androidx.compose.material3.Text
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -111,22 +113,29 @@ fun OverlayMenu(
 
 @Composable
 private fun FloatingGameSpaceButton(fps: String, onClick: () -> Unit) {
-    Card(
+    Box(
         modifier = Modifier
-            .padding(16.dp)
-            .height(50.dp)
-            .clip(RoundedCornerShape(25.dp))
+            .width(28.dp)
+            .height(120.dp)
+            .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
+            .background(Color.Black.copy(alpha = 0.4f))
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures { _, dragAmount ->
+                    if (dragAmount < -5) {
+                        onClick()
+                    }
+                }
+            }
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = GlassOverlay)
+        contentAlignment = Alignment.Center
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp).fillMaxHeight(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.Speed, contentDescription = null, tint = AccentBlue)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(fps, color = AccentBlue, fontWeight = FontWeight.Bold)
-        }
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(40.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color.White.copy(alpha = 0.6f))
+        )
     }
 }
 
