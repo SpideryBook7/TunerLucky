@@ -4,13 +4,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 
-private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryNeon,
-    secondary = SecondaryNeon,
-    background = DarkBackground,
-    surface = SurfaceDark,
-    onPrimary = DarkBackground,
+private val LuckyTunerDarkScheme = darkColorScheme(
+
+    primary = AccentBlue,
+    secondary = AccentPurple,
+
+    background = BackgroundBlack,
+    surface = SurfacePrimary,
+    surfaceVariant = SurfaceSecondary,
+
+    onPrimary = TextPrimary,
     onSecondary = TextPrimary,
+
     onBackground = TextPrimary,
     onSurface = TextPrimary
 )
@@ -20,7 +25,7 @@ fun TunerLuckyTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = LuckyTunerDarkScheme,
         content = content
     )
 }
