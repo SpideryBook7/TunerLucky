@@ -102,7 +102,7 @@ class OverlayService :
             PixelFormat.TRANSLUCENT
         )
 
-        params?.gravity = Gravity.CENTER_VERTICAL or Gravity.END
+        params?.gravity = Gravity.CENTER_VERTICAL or Gravity.RIGHT
 
         val composeView = ComposeView(this).apply {
             setViewTreeLifecycleOwner(this@OverlayService)
@@ -123,7 +123,7 @@ class OverlayService :
     private fun updateWindowSize(isExpanded: Boolean) {
         if (params == null || overlayView == null) return
         if (isExpanded) {
-            params?.width = WindowManager.LayoutParams.MATCH_PARENT
+            params?.width = WindowManager.LayoutParams.WRAP_CONTENT
             params?.height = WindowManager.LayoutParams.MATCH_PARENT
         } else {
             params?.width = WindowManager.LayoutParams.WRAP_CONTENT
