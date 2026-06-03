@@ -4,17 +4,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.NetworkWifi
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -138,6 +141,11 @@ private fun GameHubPanel(
     onClose: () -> Unit,
     onExit: () -> Unit
 ) {
+    var isBoostEnabled by remember { mutableStateOf(false) }
+    var isWifiOptEnabled by remember { mutableStateOf(false) }
+    var isDndEnabled by remember { mutableStateOf(false) }
+    var is144HzEnabled by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxHeight()
@@ -170,7 +178,10 @@ private fun GameHubPanel(
 
         // Right Settings Area
         Column(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
@@ -178,7 +189,7 @@ private fun GameHubPanel(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Performance", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text("Controls", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 Text(
                     text = "EXIT",
                     color = Color.Red.copy(alpha = 0.8f),
@@ -191,31 +202,63 @@ private fun GameHubPanel(
                 )
             }
 
+            // Gamehub style stats grid
             GameHubStatRow("FPS", stats.fps, "CPU", stats.cpuFreq)
             GameHubStatRow("GPU", stats.gpuFreq, "RAM", stats.ramUsed)
             GameHubStatRow("TEMP", stats.temperature, "BAT", stats.battery)
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Quick Actions", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
 
-            GameHubActionRow(
-                "Performance Boost",
-                "Maximize CPU/GPU clocks",
-                Icons.Default.Speed,
-                onClick = { performanceManager.enableBoost() }
+            // Gamehub style toggles
+            GameHubToggleRow(
+                title = "Performance Boost",
+                subtitle = "Maximize CPU/GPU clocks",
+                checked = isBoostEnabled,
+                onCheckedChange = { 
+                    isBoostEnabled = it
+                    if (it) performanceManager.enableBoost() else performanceManager.disableBoost()
+                }
             )
+
+            GameHubToggleRow(
+                title = "Force 144Hz Mode",
+                subtitle = "Highest refresh rate",
+                checked = is144HzEnabled,
+                onCheckedChange = { 
+                    is144HzEnabled = it
+                    if (it) performanceManager.set144Hz() else performanceManager.set60Hz()
+                }
+            )
+
+            GameHubToggleRow(
+                title = "WiFi Optimization",
+                subtitle = "Reduce network latency",
+                checked = isWifiOptEnabled,
+                onCheckedChange = { 
+                    isWifiOptEnabled = it
+                    if (it) performanceManager.enableWifiGaming() else performanceManager.disableWifiGaming()
+                }
+            )
+
+            GameHubToggleRow(
+                title = "Do Not Disturb",
+                subtitle = "Block notifications",
+                checked = isDndEnabled,
+                onCheckedChange = { 
+                    isDndEnabled = it
+                    if (it) performanceManager.enableDoNotDisturb() else performanceManager.disableDoNotDisturb()
+                }
+            )
+
+            // Clickable action
             GameHubActionRow(
-                "Clear Memory",
-                "Free up RAM for game",
-                Icons.Default.Memory,
+                title = "Clear Memory",
+                subtitle = "Free up RAM instantly",
+                icon = Icons.Default.Memory,
                 onClick = { performanceManager.clearRam() }
             )
-            GameHubActionRow(
-                "Network Optimize",
-                "Reduce WiFi latency",
-                Icons.Default.NetworkWifi,
-                onClick = { performanceManager.enableWifiGaming() }
-            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -246,6 +289,39 @@ private fun GameHubStatCard(modifier: Modifier = Modifier, title: String, value:
 }
 
 @Composable
+private fun GameHubToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onCheckedChange(!checked) }
+            .background(Color.White.copy(alpha = 0.05f))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(subtitle, color = Color.Gray, fontSize = 12.sp)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = AccentBlue,
+                uncheckedThumbColor = Color.Gray,
+                uncheckedTrackColor = Color.DarkGray
+            )
+        )
+    }
+}
+
+@Composable
 private fun GameHubActionRow(
     title: String,
     subtitle: String,
@@ -258,7 +334,7 @@ private fun GameHubActionRow(
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .background(Color.White.copy(alpha = 0.05f))
-            .padding(12.dp),
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, contentDescription = null, tint = AccentBlue, modifier = Modifier.padding(end = 12.dp))
