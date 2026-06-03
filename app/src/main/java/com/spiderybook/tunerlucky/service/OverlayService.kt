@@ -167,6 +167,28 @@ class OverlayService :
 
         hudView = composeView
         windowManager.addView(hudView, hudParams)
+
+        // Observe config to hide/show window completely
+        serviceScope.launch {
+            OverlayState.hudConfig.collect { config ->
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    if (hudParams != null && hudView != null) {
+                        if (config.isEnabled) {
+                            hudParams?.width = WindowManager.LayoutParams.WRAP_CONTENT
+                            hudParams?.height = WindowManager.LayoutParams.WRAP_CONTENT
+                        } else {
+                            hudParams?.width = 0
+                            hudParams?.height = 0
+                        }
+                        try {
+                            windowManager.updateViewLayout(hudView, hudParams)
+                        } catch (e: Exception) {
+                            // View might be removed
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun updateSidebarSize(isExpanded: Boolean) {

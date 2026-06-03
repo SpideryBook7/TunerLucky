@@ -5,13 +5,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
@@ -19,7 +25,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +34,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spiderybook.tunerlucky.data.PerformanceProfile
 import com.spiderybook.tunerlucky.data.StatsData
 import com.spiderybook.tunerlucky.domain.managers.PerformanceManager
 import com.spiderybook.tunerlucky.ui.state.OverlayState
@@ -164,17 +170,23 @@ private fun GameHubPanel(
             }
             Spacer(modifier = Modifier.weight(1f))
             
-            // Tab 0: Performance
+            // Tab 0: Performance & Stats
             TabIcon(
                 icon = Icons.Default.MonitorHeart,
                 isSelected = currentTab == 0,
                 onClick = { currentTab = 0 }
             )
-            // Tab 1: Settings
+            // Tab 1: System Settings
             TabIcon(
                 icon = Icons.Default.Settings,
                 isSelected = currentTab == 1,
                 onClick = { currentTab = 1 }
+            )
+            // Tab 2: Smart Profiles
+            TabIcon(
+                icon = Icons.Default.Analytics,
+                isSelected = currentTab == 2,
+                onClick = { currentTab = 2 }
             )
             
             Spacer(modifier = Modifier.weight(1f))
@@ -185,6 +197,7 @@ private fun GameHubPanel(
             when (currentTab) {
                 0 -> PerformanceTab(stats, performanceManager)
                 1 -> SettingsTab(performanceManager)
+                2 -> ProfilesTab(performanceManager)
             }
             
             // Fixed Exit Button at top right
@@ -222,8 +235,16 @@ private fun PerformanceTab(stats: StatsData, performanceManager: PerformanceMana
     val hudConfig by OverlayState.hudConfig.collectAsState()
     var isBoostEnabled by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         Text("Performance", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+
+        // The requested stat cards
+        GameHubStatRow("FPS", stats.fps, "CPU", stats.cpuFreq)
+        GameHubStatRow("GPU", stats.gpuFreq, "RAM", stats.ramUsed)
+        GameHubStatRow("TMP", stats.temperature, "BAT", stats.battery)
 
         // HUD Display Card
         Column(
@@ -251,8 +272,8 @@ private fun PerformanceTab(stats: StatsData, performanceManager: PerformanceMana
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         HudCheckbox("CPU", hudConfig.showCpu) { OverlayState.hudConfig.value = hudConfig.copy(showCpu = it) }
-                        HudCheckbox("Graph", false) { /* Omitted as requested */ }
                         HudCheckbox("TMP", hudConfig.showTmp) { OverlayState.hudConfig.value = hudConfig.copy(showTmp = it) }
+                        HudCheckbox("BAT", hudConfig.showBat) { OverlayState.hudConfig.value = hudConfig.copy(showBat = it) }
                     }
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         HudCheckbox("GPU", hudConfig.showGpu) { OverlayState.hudConfig.value = hudConfig.copy(showGpu = it) }
@@ -272,12 +293,7 @@ private fun PerformanceTab(stats: StatsData, performanceManager: PerformanceMana
             }
         )
         
-        // Simple stat overview at the bottom
-        Spacer(modifier = Modifier.weight(1f))
-        Text("Performance Metrics", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-        Text("CPU: ${stats.cpuFreq}", color = Color.Gray, fontSize = 12.sp)
-        Text("GPU: ${stats.gpuFreq}", color = Color.Gray, fontSize = 12.sp)
-        Text("RAM: ${stats.ramUsed}", color = Color.Gray, fontSize = 12.sp)
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -287,7 +303,10 @@ private fun SettingsTab(performanceManager: PerformanceManager) {
     var isDndEnabled by remember { mutableStateOf(false) }
     var selectedHz by remember { mutableStateOf(60) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         Text("System Settings", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
 
         // Refresh Rate Selector
@@ -305,14 +324,19 @@ private fun SettingsTab(performanceManager: PerformanceManager) {
                     selectedHz = 60
                     performanceManager.set60Hz()
                 }
+                HzButton("90Hz", selectedHz == 90, Modifier.weight(1f)) {
+                    selectedHz = 90
+                    performanceManager.set90Hz()
+                }
                 HzButton("120Hz", selectedHz == 120, Modifier.weight(1f)) {
                     selectedHz = 120
                     performanceManager.set120Hz()
                 }
-                HzButton("144Hz", selectedHz == 144, Modifier.weight(1f)) {
-                    selectedHz = 144
-                    performanceManager.set144Hz()
-                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            HzButton("144Hz Extreme", selectedHz == 144, Modifier.fillMaxWidth()) {
+                selectedHz = 144
+                performanceManager.set144Hz()
             }
         }
 
@@ -348,6 +372,71 @@ private fun SettingsTab(performanceManager: PerformanceManager) {
             Icon(Icons.Default.Memory, contentDescription = null, tint = AccentBlue)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Clear Memory Instantly", color = AccentBlue, fontWeight = FontWeight.Bold)
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun ProfilesTab(performanceManager: PerformanceManager) {
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("Smart Profiles", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text("Apply automatic performance profiles to tune the system instantly.", color = Color.Gray, fontSize = 12.sp)
+
+        GameHubActionRow(
+            title = "Battery Saver",
+            subtitle = "60Hz, No Boost",
+            icon = Icons.Default.Tune,
+            onClick = { performanceManager.applyProfile(PerformanceProfile.BATTERY) }
+        )
+        GameHubActionRow(
+            title = "Balanced",
+            subtitle = "120Hz, Normal",
+            icon = Icons.Default.Tune,
+            onClick = { performanceManager.applyProfile(PerformanceProfile.BALANCED) }
+        )
+        GameHubActionRow(
+            title = "Performance",
+            subtitle = "120Hz, Boost Enabled",
+            icon = Icons.Default.Speed,
+            onClick = { performanceManager.applyProfile(PerformanceProfile.PERFORMANCE) }
+        )
+        GameHubActionRow(
+            title = "Extreme Gaming",
+            subtitle = "144Hz, Boost, Max Optimizations",
+            icon = Icons.Default.Memory,
+            onClick = { performanceManager.applyProfile(PerformanceProfile.EXTREME) }
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun GameHubStatRow(title1: String, val1: String, title2: String, val2: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        GameHubStatCard(modifier = Modifier.weight(1f), title1, val1)
+        GameHubStatCard(modifier = Modifier.weight(1f), title2, val2)
+    }
+}
+
+@Composable
+private fun GameHubStatCard(modifier: Modifier = Modifier, title: String, value: String) {
+    Card(
+        modifier = modifier.height(60.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(title, color = Color.Gray, fontSize = 10.sp)
+            Text(value, color = AccentBlue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -396,5 +485,29 @@ private fun GameHubToggleRow(title: String, checked: Boolean, onCheckedChange: (
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(checkedTrackColor = AccentBlue)
         )
+    }
+}
+
+@Composable
+private fun GameHubActionRow(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .background(Color.White.copy(alpha = 0.05f))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = AccentBlue, modifier = Modifier.padding(end = 12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(subtitle, color = Color.Gray, fontSize = 12.sp)
+        }
     }
 }

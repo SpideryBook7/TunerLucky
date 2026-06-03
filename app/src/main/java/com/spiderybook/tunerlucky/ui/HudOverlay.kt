@@ -27,11 +27,11 @@ fun HudOverlay(stats: StatsData) {
 
     Row(
         modifier = Modifier
-            .padding(top = 8.dp)
+            .padding(top = 4.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(Color.Black.copy(alpha = 0.5f))
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         HudMetric("DXVK", "", Color(0xFFFF4081))
@@ -70,15 +70,15 @@ fun HudOverlay(stats: StatsData) {
 
 @Composable
 private fun HudMetric(label: String, value: String, labelColor: Color) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         if (value.isNotEmpty()) {
-            Text(value, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text(value, color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
 private fun HudSeparator() {
-    Text("|", color = Color.Gray, fontSize = 10.sp)
+    Text("|", color = Color.Gray, fontSize = 8.sp)
 }
