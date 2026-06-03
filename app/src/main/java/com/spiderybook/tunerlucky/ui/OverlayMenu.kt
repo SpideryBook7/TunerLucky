@@ -1,21 +1,12 @@
 package com.spiderybook.tunerlucky.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Minimize
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.NetworkWifi
 import androidx.compose.material.icons.filled.Speed
@@ -25,34 +16,21 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spiderybook.tunerlucky.data.PerformanceProfile
 import com.spiderybook.tunerlucky.data.StatsData
 import com.spiderybook.tunerlucky.domain.managers.PerformanceManager
 import com.spiderybook.tunerlucky.domain.managers.StatsMonitor
 import com.spiderybook.tunerlucky.ui.theme.AccentBlue
-import com.spiderybook.tunerlucky.ui.theme.DangerRed
-import com.spiderybook.tunerlucky.ui.theme.GlassOverlay
-import com.spiderybook.tunerlucky.ui.theme.BackgroundBlack
-import com.spiderybook.tunerlucky.ui.theme.SurfaceCard
-import com.spiderybook.tunerlucky.ui.theme.TextPrimary
-import com.spiderybook.tunerlucky.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -68,12 +46,8 @@ fun OverlayMenu(
     var stats by remember {
         mutableStateOf(
             StatsData(
-                cpuFreq = "N/A",
-                gpuFreq = "N/A",
-                ramUsed = "N/A",
-                temperature = "N/A",
-                battery = "N/A",
-                fps = "N/A"
+                cpuFreq = "N/A", gpuFreq = "N/A", ramUsed = "N/A",
+                temperature = "N/A", battery = "N/A", fps = "N/A"
             )
         )
     }
@@ -92,26 +66,17 @@ fun OverlayMenu(
         contentAlignment = Alignment.CenterEnd
     ) {
         if (isExpanded) {
-            Row(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .wrapContentWidth()
-                    .background(BackgroundBlack.copy(alpha = 0.95f))
-                    .padding(horizontal = 8.dp)
-            ) {
-                LeftWing(stats = stats)
-                RightWing(
-                    onClose = { onClose() },
-                    onMinimize = {
-                        isExpanded = false
-                        onExpandedChange(false)
-                    },
-                    performanceManager = performanceManager
-                )
-            }
+            GameHubPanel(
+                stats = stats,
+                performanceManager = performanceManager,
+                onClose = {
+                    isExpanded = false
+                    onExpandedChange(false)
+                },
+                onExit = onClose
+            )
         } else {
-            FloatingGameSpaceButton(
-                fps = stats.fps,
+            EdgeSwipeTrigger(
                 onClick = {
                     isExpanded = true
                     onExpandedChange(true)
@@ -122,173 +87,184 @@ fun OverlayMenu(
 }
 
 @Composable
-private fun FloatingGameSpaceButton(fps: String, onClick: () -> Unit) {
+private fun EdgeSwipeTrigger(onClick: () -> Unit) {
+    var lastSwipeTime by remember { mutableStateOf(0L) }
+
     Box(
         modifier = Modifier
-            .width(28.dp)
-            .height(120.dp)
-            .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
-            .background(Color.Black.copy(alpha = 0.4f))
+            .width(16.dp)
+            .height(140.dp)
+            .clip(RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp))
+            .background(Color.Black.copy(alpha = 0.2f))
             .pointerInput(Unit) {
                 detectHorizontalDragGestures { _, dragAmount ->
                     if (dragAmount < -5) {
-                        onClick()
+                        val now = System.currentTimeMillis()
+                        // Double swipe within 1000ms triggers the overlay
+                        if (now - lastSwipeTime < 1000) {
+                            onClick()
+                            lastSwipeTime = 0L
+                        } else {
+                            lastSwipeTime = now
+                        }
                     }
                 }
             }
-            .clickable(onClick = onClick),
+            .clickable {
+                val now = System.currentTimeMillis()
+                if (now - lastSwipeTime < 1000) {
+                    onClick()
+                    lastSwipeTime = 0L
+                } else {
+                    lastSwipeTime = now
+                }
+            },
         contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
-                .width(4.dp)
+                .width(2.dp)
                 .height(40.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(Color.White.copy(alpha = 0.6f))
+                .clip(RoundedCornerShape(1.dp))
+                .background(Color.White.copy(alpha = 0.4f))
         )
     }
 }
 
 @Composable
-private fun LeftWing(
-    stats: StatsData
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxHeight()
-            .width(170.dp)
-            .padding(
-                start = 12.dp,
-                top = 24.dp,
-                bottom = 24.dp
-            ),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        OverlayStatCard("FPS", stats.fps)
-        OverlayStatCard("CPU", stats.cpuFreq)
-        OverlayStatCard("GPU", stats.gpuFreq)
-        OverlayStatCard("RAM", stats.ramUsed)
-        OverlayStatCard("TEMP", stats.temperature)
-        OverlayStatCard("BAT", stats.battery)
-    }
-}
-
-@Composable
-private fun RightWing(
+private fun GameHubPanel(
+    stats: StatsData,
+    performanceManager: PerformanceManager,
     onClose: () -> Unit,
-    onMinimize: () -> Unit,
-    performanceManager: PerformanceManager
+    onExit: () -> Unit
 ) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxHeight()
-            .width(170.dp)
-            .padding(
-                end = 12.dp,
-                top = 24.dp,
-                bottom = 24.dp
-            )
-            .wrapContentWidth(Alignment.End),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.End
+            .width(360.dp)
+            .clip(RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp))
+            .background(Color(0xFF0F172A).copy(alpha = 0.95f))
+            .padding(16.dp)
     ) {
-        OverlayActionCard("BOOST", Icons.Default.Speed) { performanceManager.enableBoost() }
-        OverlayActionCard("RAM", Icons.Default.Memory) { performanceManager.clearRam() }
-        OverlayActionCard("WIFI", Icons.Default.NetworkWifi) { performanceManager.enableWifiGaming() }
-        OverlayActionCard("PROFILE", Icons.Default.Tune) { performanceManager.applyProfile(com.spiderybook.tunerlucky.data.PerformanceProfile.BALANCED) }
-
-        Card(
-            colors = CardDefaults.cardColors(containerColor = SurfaceCard),
-            shape = RoundedCornerShape(18.dp)
-        ) {
-            IconButton(onClick = onMinimize) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = null,
-                    tint = TextPrimary
-                )
-            }
-        }
-
-        Card(
-            colors = CardDefaults.cardColors(containerColor = DangerRed),
-            shape = RoundedCornerShape(18.dp)
+        // Left Icon Strip
+        Column(
+            modifier = Modifier.width(60.dp).fillMaxHeight(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             IconButton(onClick = onClose) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = null,
-                    tint = Color.White
+                Icon(Icons.Default.Close, contentDescription = "Minimize", tint = Color.White)
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            IconButton(onClick = { performanceManager.enableBoost() }) {
+                Icon(Icons.Default.Speed, contentDescription = "Boost", tint = AccentBlue)
+            }
+            IconButton(onClick = { performanceManager.clearRam() }) {
+                Icon(Icons.Default.Memory, contentDescription = "RAM", tint = AccentBlue)
+            }
+            IconButton(onClick = { performanceManager.applyProfile(PerformanceProfile.PERFORMANCE) }) {
+                Icon(Icons.Default.Tune, contentDescription = "Profile", tint = AccentBlue)
+            }
+            Spacer(modifier = Modifier.weight(1f))
+        }
+
+        // Right Settings Area
+        Column(
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Performance", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(
+                    text = "EXIT",
+                    color = Color.Red.copy(alpha = 0.8f),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onExit)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
+
+            GameHubStatRow("FPS", stats.fps, "CPU", stats.cpuFreq)
+            GameHubStatRow("GPU", stats.gpuFreq, "RAM", stats.ramUsed)
+            GameHubStatRow("TEMP", stats.temperature, "BAT", stats.battery)
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Quick Actions", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+
+            GameHubActionRow(
+                "Performance Boost",
+                "Maximize CPU/GPU clocks",
+                Icons.Default.Speed,
+                onClick = { performanceManager.enableBoost() }
+            )
+            GameHubActionRow(
+                "Clear Memory",
+                "Free up RAM for game",
+                Icons.Default.Memory,
+                onClick = { performanceManager.clearRam() }
+            )
+            GameHubActionRow(
+                "Network Optimize",
+                "Reduce WiFi latency",
+                Icons.Default.NetworkWifi,
+                onClick = { performanceManager.enableWifiGaming() }
+            )
         }
     }
 }
 
 @Composable
-private fun OverlayStatCard(
-    title: String,
-    value: String
-) {
+private fun GameHubStatRow(title1: String, val1: String, title2: String, val2: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        GameHubStatCard(modifier = Modifier.weight(1f), title1, val1)
+        GameHubStatCard(modifier = Modifier.weight(1f), title2, val2)
+    }
+}
+
+@Composable
+private fun GameHubStatCard(modifier: Modifier = Modifier, title: String, value: String) {
     Card(
-        modifier = Modifier.width(160.dp),
-        colors = CardDefaults.cardColors(containerColor = GlassOverlay),
-        shape = RoundedCornerShape(20.dp)
+        modifier = modifier.height(70.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = title,
-                color = TextSecondary,
-                fontSize = 12.sp
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = value,
-                color = AccentBlue,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text(title, color = Color.Gray, fontSize = 12.sp)
+            Text(value, color = AccentBlue, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-private fun OverlayActionCard(
+private fun GameHubActionRow(
     title: String,
+    subtitle: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit
 ) {
-    Card(
+    Row(
         modifier = Modifier
-            .width(160.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = GlassOverlay),
-        shape = RoundedCornerShape(20.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .background(Color.White.copy(alpha = 0.05f))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    horizontal = 16.dp,
-                    vertical = 14.dp
-                ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = AccentBlue
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = title,
-                color = TextPrimary,
-                fontWeight = FontWeight.Medium
-            )
+        Icon(icon, contentDescription = null, tint = AccentBlue, modifier = Modifier.padding(end = 12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(subtitle, color = Color.Gray, fontSize = 12.sp)
         }
     }
 }
