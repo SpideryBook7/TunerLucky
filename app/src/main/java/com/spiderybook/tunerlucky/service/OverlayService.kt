@@ -29,6 +29,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.spiderybook.tunerlucky.domain.managers.StatsMonitor
 import com.spiderybook.tunerlucky.ui.HudOverlay
 import com.spiderybook.tunerlucky.ui.OverlayMenu
+import com.spiderybook.tunerlucky.ui.state.OverlayState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -89,6 +90,35 @@ class OverlayService :
             while (isActive) {
                 statsFlow.value = statsMonitor.read()
                 delay(1000)
+            }
+        }
+
+        // Auto-close monitor
+        serviceScope.launch {
+            // Give the game time to launch before we start checking
+            delay(5000)
+            while (isActive) {
+                try {
+                    val focus = com.spiderybook.tunerlucky.shizuku.ShizukuManager.runCommand("dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp'")
+                    if (focus.contains("com.spiderybook.tunerlucky") || 
+                        focus.contains("launcher", ignoreCase = true) || 
+                        focus.contains("nexuslauncher", ignoreCase = true) ||
+                        focus.contains("systemui", ignoreCase = true)) {
+                        
+                        // Wait to ensure it's not a transient state (like opening a notification panel)
+                        delay(2000)
+                        val checkAgain = com.spiderybook.tunerlucky.shizuku.ShizukuManager.runCommand("dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp'")
+                        if (checkAgain.contains("com.spiderybook.tunerlucky") || 
+                            checkAgain.contains("launcher", ignoreCase = true) || 
+                            checkAgain.contains("nexuslauncher", ignoreCase = true) ||
+                            checkAgain.contains("systemui", ignoreCase = true)) {
+                            
+                            stopSelf()
+                            break
+                        }
+                    }
+                } catch (e: Exception) {}
+                delay(3000)
             }
         }
 

@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Settings
@@ -188,6 +189,12 @@ private fun GameHubPanel(
                 isSelected = currentTab == 2,
                 onClick = { currentTab = 2 }
             )
+            // Tab 3: Frame Generation (LSFG)
+            TabIcon(
+                icon = Icons.Default.Layers,
+                isSelected = currentTab == 3,
+                onClick = { currentTab = 3 }
+            )
             
             Spacer(modifier = Modifier.weight(1f))
         }
@@ -198,6 +205,7 @@ private fun GameHubPanel(
                 0 -> PerformanceTab(stats, performanceManager)
                 1 -> SettingsTab(performanceManager)
                 2 -> ProfilesTab(performanceManager)
+                3 -> LSFGTab()
             }
             
             // Fixed Exit Button at top right
@@ -509,5 +517,57 @@ private fun GameHubActionRow(
             Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Text(subtitle, color = Color.Gray, fontSize = 12.sp)
         }
+    }
+}
+
+@Composable
+private fun LSFGTab() {
+    var isLsfgEnabled by remember { mutableStateOf(false) }
+    var performanceMode by remember { mutableStateOf(true) }
+
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("Frame Generation", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text("Lossless Scaling Frame Generation (LSFG). Interpolate frames to double the smoothness.", color = Color.Gray, fontSize = 12.sp)
+
+        GameHubToggleRow(
+            title = "Enable LSFG (Beta)",
+            checked = isLsfgEnabled,
+            onCheckedChange = { isLsfgEnabled = it }
+        )
+
+        if (isLsfgEnabled) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White.copy(alpha = 0.05f))
+                    .padding(16.dp)
+            ) {
+                Text("Optical Flow Mode", color = Color.White, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HzButton("Performance", performanceMode, Modifier.weight(1f)) {
+                        performanceMode = true
+                    }
+                    HzButton("Quality", !performanceMode, Modifier.weight(1f)) {
+                        performanceMode = false
+                    }
+                }
+            }
+            
+            GameHubActionRow(
+                title = "Vulkan Compute API",
+                subtitle = "Engine: Ready",
+                icon = Icons.Default.Layers,
+                onClick = {}
+            )
+            
+            Text("Note: This feature is currently in architectural preview. The NDK interpolation engine will be connected in a future update.", color = AccentBlue, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }

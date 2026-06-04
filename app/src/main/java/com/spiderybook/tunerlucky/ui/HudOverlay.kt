@@ -34,10 +34,7 @@ fun HudOverlay(stats: StatsData) {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        HudMetric("DXVK", "", Color(0xFFFF4081))
-        
         if (config.showGpu) {
-            HudSeparator()
             HudMetric("GPU", stats.gpuFreq.replace(" MHz", "%"), Color(0xFF4CAF50)) // Simplified mapping
         }
         
