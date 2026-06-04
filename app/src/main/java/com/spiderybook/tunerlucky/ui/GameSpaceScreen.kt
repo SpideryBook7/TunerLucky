@@ -195,22 +195,21 @@ fun GameSpaceScreen() {
     ) {
         AuroraBackground()
 
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp)
+        // Main content area with padding
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 66.dp) // Reserve space for bottom bar
+                .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-            ) {
-                AuroraHeader(
-                    filter = showAllFilter,
-                    onFilterChange = { showAllFilter = it }
-                )
+            AuroraHeader(
+                filter = showAllFilter,
+                onFilterChange = { showAllFilter = it }
+            )
 
-                Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-                Box(modifier = Modifier.weight(1f)) {
+            Box(modifier = Modifier.weight(1f)) {
 
                 when (selectedSection) {
                     Section.Home -> HomeScreen(
@@ -285,14 +284,17 @@ fun GameSpaceScreen() {
 
                     Section.About -> AboutScreen()
                 }
-                } // Close Box
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                BottomNavigationMenu(
-                    selected = selectedSection,
-                    onSelected = { selectedSection = it }
-                )
-            }
+            } // Close Box
+        }
+
+        // Bottom Navigation pinned to very bottom edge
+        Box(
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            BottomNavigationMenu(
+                selected = selectedSection,
+                onSelected = { selectedSection = it }
+            )
         }
 
         AnimatedVisibility(
@@ -365,9 +367,9 @@ private fun BottomNavigationMenu(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
             .background(GlassOverlay)
-            .padding(vertical = 8.dp, horizontal = 8.dp),
+            .padding(vertical = 10.dp, horizontal = 8.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -492,8 +494,8 @@ private fun HomeScreen(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxWidth().height(320.dp),
-            contentPadding = PaddingValues(horizontal = 80.dp),
-            pageSpacing = 4.dp
+            contentPadding = PaddingValues(horizontal = 60.dp),
+            pageSpacing = (-8).dp // Overlap slightly like Aurora
         ) { page ->
             val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
             val scale = 1f - 0.15f * kotlin.math.abs(pageOffset).coerceAtMost(1f)
