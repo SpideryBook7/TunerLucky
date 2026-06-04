@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -52,6 +51,11 @@ import androidx.compose.material.icons.filled.SpaceDashboard
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -110,6 +114,8 @@ import com.spiderybook.tunerlucky.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.draw.shadow
 
 private enum class Section(
     val title: String,
@@ -141,7 +147,6 @@ fun GameSpaceScreen() {
     val profiles by libraryManager.gameProfiles.collectAsState(initial = emptyMap())
     val favorites by libraryManager.favoriteApps.collectAsState(initial = emptySet())
     val lastPlayed by libraryManager.lastPlayed.collectAsState(initial = emptyMap())
-    val logs by libraryManager.logs.collectAsState(initial = emptyList())
     val fpsCounter by libraryManager.fpsCounter.collectAsState(initial = true)
     val autoDetection by libraryManager.autoDetection.collectAsState(initial = false)
     val autoOverlay by libraryManager.autoOverlay.collectAsState(initial = true)
@@ -199,8 +204,8 @@ fun GameSpaceScreen() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 66.dp) // Reserve space for bottom bar
-                .padding(horizontal = 20.dp, vertical = 20.dp)
+                .padding(horizontal = 20.dp)
+                .padding(top = 20.dp)
         ) {
             AuroraHeader(
                 filter = showAllFilter,
@@ -289,7 +294,9 @@ fun GameSpaceScreen() {
 
         // Bottom Navigation pinned to very bottom edge
         Box(
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
         ) {
             BottomNavigationMenu(
                 selected = selectedSection,
@@ -321,39 +328,46 @@ fun GameSpaceScreen() {
 private fun AuroraBackground() {
     val infiniteTransition = rememberInfiniteTransition(label = "aurora")
     val offset1 by infiniteTransition.animateFloat(
-        initialValue = 0f, targetValue = 1000f,
-        animationSpec = infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Reverse),
+        initialValue = 0f, targetValue = 2000f,
+        animationSpec = infiniteRepeatable(tween(25000, easing = LinearEasing), RepeatMode.Reverse),
         label = "offset1"
     )
     val offset2 by infiniteTransition.animateFloat(
-        initialValue = 1000f, targetValue = 0f,
-        animationSpec = infiniteRepeatable(tween(25000, easing = LinearEasing), RepeatMode.Reverse),
+        initialValue = 2000f, targetValue = 0f,
+        animationSpec = infiniteRepeatable(tween(30000, easing = LinearEasing), RepeatMode.Reverse),
         label = "offset2"
     )
 
-    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize().background(Color(0xFF000511))) {
         val w = size.width
         val h = size.height
         
         drawRect(
             brush = Brush.radialGradient(
-                colors = listOf(Color(0xFF0D47A1), Color.Transparent),
-                center = Offset(offset1 % w, h * 0.3f),
-                radius = w * 0.8f
-            )
-        )
-        drawRect(
-            brush = Brush.radialGradient(
-                colors = listOf(Color(0xFF00BCD4).copy(alpha=0.4f), Color.Transparent),
-                center = Offset(w - (offset2 % w), h * 0.7f),
+                colors = listOf(Color(0xFF001D4A), Color.Transparent),
+                center = Offset(offset1 % w, h * 0.2f),
                 radius = w * 0.9f
             )
         )
         drawRect(
             brush = Brush.radialGradient(
-                colors = listOf(Color(0xFF4A148C).copy(alpha=0.3f), Color.Transparent),
+                colors = listOf(Color(0xFF130026), Color.Transparent),
+                center = Offset(w - (offset2 % w), h * 0.8f),
+                radius = w * 0.8f
+            )
+        )
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(Color(0xFF001133), Color.Transparent),
                 center = Offset(w / 2f, offset1 % h),
                 radius = w * 0.7f
+            )
+        )
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(AccentPurple.copy(alpha = 0.20f), Color.Transparent),
+                center = Offset(w * 0.15f, h * 0.25f + (offset2 % 200f)),
+                radius = w * 0.6f
             )
         )
     }
@@ -364,33 +378,50 @@ private fun BottomNavigationMenu(
     selected: Section,
     onSelected: (Section) -> Unit
 ) {
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-            .background(GlassOverlay)
-            .padding(vertical = 10.dp, horizontal = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
+            .height(95.dp)
+            .padding(horizontal = 24.dp, vertical = 18.dp)
+            .shadow(elevation = 20.dp, shape = RoundedCornerShape(28.dp), spotColor = Color(0xFF4F7BFF), ambientColor = Color(0xFF4F7BFF)),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF07152F).copy(alpha = 0.90f)),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
     ) {
-        Section.entries.forEach { section ->
-            val isSelected = section == selected
-            val selectedColor by animateColorAsState(
-                targetValue = if (isSelected) AccentBlue else Color.Transparent,
-                label = "navColor"
-            )
-            IconButton(
-                onClick = { onSelected(section) },
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-                    .background(selectedColor.copy(alpha = if (isSelected) 0.22f else 0f))
-            ) {
-                Icon(
-                    imageVector = section.icon,
-                    contentDescription = section.title,
-                    tint = if (isSelected) AccentBlue else TextSecondary
-                )
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Section.entries.forEach { section ->
+                val isSelected = section == selected
+                
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable { onSelected(section) }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp, 36.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(
+                                if (isSelected) Brush.verticalGradient(listOf(Color(0xFF4F7BFF), Color(0xFF9A57FF))) 
+                                else SolidColor(Color.Transparent)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = section.icon,
+                            contentDescription = section.title,
+                            tint = if (isSelected) Color.White else TextSecondary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    if (isSelected) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(section.title, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }
@@ -402,13 +433,13 @@ private fun AuroraHeader(
     onFilterChange: (ShowAllFilter) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().height(90.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         // Profile side
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(modifier = Modifier.size(54.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray)) {
+            Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.12f))) {
                 Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.align(Alignment.Center))
             }
             Column {
@@ -422,13 +453,10 @@ private fun AuroraHeader(
         }
         
         // Show All / Android / Emulators toggle
-        Text(
-            text = filter.label,
-            color = Color.White,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Normal,
+        Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(50))
+                .background(Color.White.copy(alpha = 0.06f))
                 .clickable {
                     val next = when (filter) {
                         ShowAllFilter.ShowAll -> ShowAllFilter.Android
@@ -437,8 +465,18 @@ private fun AuroraHeader(
                     }
                     onFilterChange(next)
                 }
-                .padding(8.dp)
-        )
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = filter.label,
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+        }
     }
 }
 
@@ -491,41 +529,107 @@ private fun HomeScreen(
     ) {
         Spacer(modifier = Modifier.weight(1f))
 
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxWidth().height(320.dp),
-            contentPadding = PaddingValues(horizontal = 60.dp),
-            pageSpacing = (-8).dp // Overlap slightly like Aurora
-        ) { page ->
-            val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
-            val scale = 1f - 0.15f * kotlin.math.abs(pageOffset).coerceAtMost(1f)
-            val alpha = 1f - 0.3f * kotlin.math.abs(pageOffset).coerceAtMost(1f)
+    Box(
+    modifier = Modifier
+        .fillMaxWidth()
+        .height(380.dp)
+) {
 
-            Box(
-                modifier = Modifier
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        this.alpha = alpha
-                    }
-                    .width(160.dp)
-                    .height(280.dp)
-                    .clickable {
-                        if (page == pagerState.currentPage) {
-                            if (page < games.size) onLaunch(games[page]) else onAdd()
-                        } else {
-                            scope.launch { pagerState.animateScrollToPage(page) }
-                        }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                if (page < games.size) {
-                    AuroraGameCover(games[page])
-                } else {
-                    AddGameCover()
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(380.dp),
+        contentPadding = PaddingValues(horizontal = 220.dp),
+        pageSpacing = (-80).dp
+    ) { page ->
+
+        val pageOffset =
+            (pagerState.currentPage - page) +
+            pagerState.currentPageOffsetFraction
+
+        val scale =
+            1f - 0.15f * kotlin.math.abs(pageOffset)
+                .coerceAtMost(1f)
+
+        val alpha =
+            1f - 0.45f * kotlin.math.abs(pageOffset)
+                .coerceAtMost(1f)
+                
+        val density = androidx.compose.ui.platform.LocalDensity.current
+
+        Box(
+            modifier = Modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    this.alpha = alpha
+                    translationX = pageOffset * -80f
+                    rotationY = pageOffset * 28f
+                    cameraDistance = 12f * density.density
                 }
-            }
+                .width(220.dp)
+                .height(340.dp)
+                .clickable {
+                    if (page == pagerState.currentPage) {
+                        if (page < games.size) onLaunch(games[page]) else onAdd()
+                    } else {
+                        scope.launch { pagerState.animateScrollToPage(page) }
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            if (page < games.size)
+                AuroraGameCover(games[page])
+            else
+                AddGameCover()
         }
+    }
+
+    IconButton(
+        onClick = {
+            scope.launch {
+                pagerState.animateScrollToPage(
+                    (pagerState.currentPage - 1).coerceAtLeast(0)
+                )
+            }
+        },
+        modifier = Modifier
+            .align(Alignment.CenterStart)
+            .padding(start = 24.dp)
+            .size(56.dp)
+            .shadow(elevation = 20.dp, shape = CircleShape, ambientColor = AccentPurple, spotColor = AccentPurple)
+    ) {
+        Icon(
+            imageVector = androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft,
+            contentDescription = "Previous",
+            tint = AccentPurple,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+
+    IconButton(
+        onClick = {
+            scope.launch {
+                pagerState.animateScrollToPage(
+                    (pagerState.currentPage + 1).coerceAtMost(games.size)
+                )
+            }
+        },
+        modifier = Modifier
+            .align(Alignment.CenterEnd)
+            .padding(end = 24.dp)
+            .size(56.dp)
+            .shadow(elevation = 20.dp, shape = CircleShape, ambientColor = AccentPurple, spotColor = AccentPurple)
+    ) {
+        Icon(
+            imageVector = androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight,
+            contentDescription = "Next",
+            tint = AccentPurple,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -548,89 +652,111 @@ private fun HomeScreen(
 
 @Composable
 private fun AuroraGameCover(game: GameInfo) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // Main Cover - Xbox360 style tall box
-        Card(
-            modifier = Modifier.fillMaxWidth().height(240.dp),
-            shape = RoundedCornerShape(4.dp), // Sharp corners like real Xbox cases
-            border = BorderStroke(2.dp, Color(0xFF4CAF50)),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Android Header Banner
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(24.dp)
-                        .background(Color(0xFF4CAF50)),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        "  ANDROID",
-                        color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 10.sp,
-                        letterSpacing = 1.sp
-                    )
-                }
-                // Cover body with game icon
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color(0xFF2B2B2B), Color(0xFF1A1A2E))
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AppIcon(packageName = game.packageName, modifier = Modifier.size(72.dp))
-                }
-            }
-        }
-        
-        // Reflection Effect
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(36.dp)
-                .graphicsLayer {
-                    scaleY = -1f
-                    alpha = 0.2f
-                }
-        ) {
-            Card(
-                modifier = Modifier.fillMaxSize(),
-                shape = RoundedCornerShape(0.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))
+    Card(
+        modifier = Modifier
+            .fillMaxSize()
+            .shadow(
+                elevation = 30.dp,
+                shape = RoundedCornerShape(18.dp),
+                ambientColor = Color(0xFF57FF74),
+                spotColor = Color(0xFF57FF74)
+            ),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(2.dp, Color(0xFF57FF74)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Android Header Banner
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .background(Brush.horizontalGradient(listOf(Color(0xFF4CAF50), Color(0xFF66BB6A))))
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Brush.verticalGradient(listOf(Color(0xFF2B2B2B), Color(0xFF1A1A2E)))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AppIcon(packageName = game.packageName, modifier = Modifier.size(72.dp))
+                Text(
+                    "ANDROID",
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 12.sp,
+                    letterSpacing = 1.sp
+                )
+                // Small android icon mockup or just text
+                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            }
+            // Cover body
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(Brush.verticalGradient(listOf(Color(0xFF2B2B2B), Color(0xFF1A1A2E))))
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AppIcon(packageName = game.packageName, modifier = Modifier.size(90.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Text(
+                    text = game.name,
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = game.packageName.split(".").last().replaceFirstChar { it.uppercase() },
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 14.sp,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                if (game.favorite) {
+                    Row(
+                        modifier = Modifier
+                            .background(Color(0xFF163E1D), RoundedCornerShape(50))
+                            .border(1.dp, Color(0xFF57FF74), RoundedCornerShape(50))
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFF57FF74), modifier = Modifier.size(14.dp))
+                        Text("Favorito", color = Color(0xFF57FF74), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
-            Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, BackgroundBlack))))
         }
     }
 }
 
 @Composable
 private fun AddGameCover() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Card(
-            modifier = Modifier.fillMaxWidth().height(220.dp),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(2.dp, Color.Gray),
-            colors = CardDefaults.cardColors(containerColor = Color.DarkGray)
+    Card(
+        modifier = Modifier
+            .fillMaxSize()
+            .shadow(
+                elevation = 20.dp,
+                shape = RoundedCornerShape(18.dp),
+                ambientColor = Color.Gray,
+                spotColor = Color.Gray
+            ),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(2.dp, Color.Gray),
+        colors = CardDefaults.cardColors(containerColor = Color.DarkGray)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(48.dp))
-            }
+            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(48.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Add Game", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

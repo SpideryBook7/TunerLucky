@@ -1,0 +1,481 @@
+PLAN COMPLETO PARA REPLICAR EXACTAMENTE EL DISEÑO DE LA IMAGEN DE REFERENCIA
+
+OBJETIVO:
+Transformar la pantalla Home actual para que sea prácticamente idéntica al diseño mostrado en la imagen de referencia:
+
+- Estilo REDMAGIC Game Space
+- Carrusel 3D Cover Flow
+- Glow neón verde
+- Fondo aurora azul
+- Tarjetas tipo caja física Android
+- Barra inferior flotante
+- Flechas laterales brillantes
+- Información integrada dentro de la tarjeta
+- Aspecto premium y moderno
+
+====================================================
+1. REHACER COMPLETAMENTE AuroraGameCover()
+====================================================
+
+ELIMINAR:
+
+- Diseño actual de tarjeta simple.
+- Reflection inferior.
+- Caja genérica.
+
+CREAR:
+
+Tarjeta tipo caja física Android.
+
+ESTRUCTURA:
+
+ANDROID HEADER
+--------------------------------
+ICONO
+--------------------------------
+NOMBRE DEL JUEGO
+DESARROLLADOR
+--------------------------------
+BADGE FAVORITO
+
+CÓDIGO VISUAL:
+
+Card
+  RoundedCornerShape(18.dp)
+
+  BorderStroke(
+      2.dp,
+      Color(0xFF57FF74)
+  )
+
+  Shadow:
+      elevation = 30.dp
+      ambientColor = Color(0xFF57FF74)
+      spotColor = Color(0xFF57FF74)
+
+ALTURA:
+
+340.dp
+
+ANCHO:
+
+220.dp
+
+HEADER:
+
+height = 44.dp
+
+background:
+
+Brush.horizontalGradient(
+    listOf(
+        Color(0xFF4CAF50),
+        Color(0xFF66BB6A)
+    )
+)
+
+TEXTO:
+
+ANDROID
+
+ICONO ANDROID A LA DERECHA.
+
+====================================================
+2. AÑADIR NOMBRE DEL JUEGO DENTRO DE LA TARJETA
+====================================================
+
+Actualmente aparece fuera.
+
+Mover dentro.
+
+Ejemplo:
+
+Delta
+
+fontSize = 30.sp
+fontWeight = Bold
+
+color = White
+
+====================================================
+3. AÑADIR DESARROLLADOR
+====================================================
+
+Debajo del nombre.
+
+Ejemplo:
+
+Testut Tech
+
+fontSize = 16.sp
+
+color:
+
+Color.White.copy(alpha = 0.7f)
+
+Para obtenerlo:
+
+PackageManager
+ApplicationInfo
+
+applicationInfo.loadLabel()
+
+o almacenar publisher en GameInfo.
+
+====================================================
+4. CREAR BADGE FAVORITO
+====================================================
+
+Añadir debajo del desarrollador.
+
+ESTILO:
+
+Capsula verde.
+
+Row
+
+Icon(
+    Icons.Default.Star
+)
+
+Text("Favorito")
+
+background:
+
+Color(0xFF163E1D)
+
+border:
+
+Color(0xFF57FF74)
+
+shape:
+
+RoundedCornerShape(50)
+
+====================================================
+5. MEJORAR EL HORIZONTAL PAGER
+====================================================
+
+CAMBIAR:
+
+rotationY = pageOffset * 10f
+
+POR:
+
+rotationY = pageOffset * 28f
+
+AGREGAR:
+
+cameraDistance = 12f * density
+
+CAMBIAR:
+
+contentPadding = PaddingValues(
+    horizontal = 220.dp
+)
+
+CAMBIAR:
+
+pageSpacing = (-80).dp
+
+ESCALA:
+
+1f - abs(pageOffset) * 0.15f
+
+ALPHA:
+
+1f - abs(pageOffset) * 0.45f
+
+TRANSLATION:
+
+translationX = pageOffset * -80f
+
+Resultado:
+
+Efecto Cover Flow real.
+
+====================================================
+6. ELIMINAR TEXTO FUERA DE LA TARJETA
+====================================================
+
+BORRAR:
+
+Text(game.name)
+
+Text("${page} de ${games.size}")
+
+Todo debe vivir dentro de la tarjeta.
+
+====================================================
+7. CREAR FLECHAS LATERALES PREMIUM
+====================================================
+
+ELIMINAR:
+
+Text("‹")
+Text("›")
+
+REEMPLAZAR:
+
+Icons.AutoMirrored.Filled.KeyboardArrowLeft
+
+Icons.AutoMirrored.Filled.KeyboardArrowRight
+
+TAMAÑO:
+
+56.dp
+
+GLOW:
+
+shadow(
+    elevation = 20.dp,
+    ambientColor = AccentPurple,
+    spotColor = AccentPurple
+)
+
+TINT:
+
+AccentPurple
+
+POSICIÓN:
+
+Vertical Center.
+
+====================================================
+8. MEJORAR FONDO AURORA
+====================================================
+
+Mantener AuroraBackground.
+
+AÑADIR:
+
+Otra capa.
+
+Color:
+
+0xFF001D4A
+
+Color:
+
+0xFF130026
+
+Color:
+
+0xFF001133
+
+Usar:
+
+Brush.radialGradient()
+
+Crear 4 auroras animadas.
+
+Movimiento lento.
+
+20-30 segundos.
+
+====================================================
+9. REHACER COMPLETAMENTE BottomNavigationMenu()
+====================================================
+
+NO DEBE TOCAR EL BORDE INFERIOR.
+
+ESTILO:
+
+Card
+
+modifier:
+
+padding(
+    horizontal = 24.dp,
+    vertical = 18.dp
+)
+
+height:
+
+95.dp
+
+shape:
+
+RoundedCornerShape(28.dp)
+
+containerColor:
+
+Color(0xFF07152F).copy(alpha = 0.90f)
+
+border:
+
+1.dp
+
+Color.White.copy(alpha = 0.08f)
+
+shadow:
+
+20.dp
+
+====================================================
+10. ICONO SELECCIONADO DEL MENÚ
+====================================================
+
+Crear cápsula luminosa.
+
+FONDO:
+
+Brush.verticalGradient(
+    listOf(
+        Color(0xFF4F7BFF),
+        Color(0xFF9A57FF)
+    )
+)
+
+Shape:
+
+RoundedCornerShape(18.dp)
+
+Mostrar texto debajo.
+
+====================================================
+11. HEADER SUPERIOR
+====================================================
+
+Mantener:
+
+Fran
+
+G 200 / 2
+
+PERO:
+
+Avatar:
+
+64.dp
+
+RoundedCornerShape(16.dp)
+
+background:
+
+Color.White.copy(alpha = 0.12f)
+
+Icono "+" centrado.
+
+====================================================
+12. BOTÓN SHOW ALL
+====================================================
+
+Convertir en:
+
+Row
+
+Text("Show All")
+
+Icon(
+    ArrowForwardIos
+)
+
+Dentro de:
+
+RoundedCornerShape(50)
+
+background:
+
+Color.White.copy(alpha = 0.06f)
+
+padding:
+
+horizontal = 18.dp
+
+vertical = 12.dp
+
+====================================================
+13. CENTRAR TODO EL HOME
+====================================================
+
+Actualmente está algo desplazado.
+
+El carrusel debe estar exactamente en el centro.
+
+Usar:
+
+verticalArrangement =
+    Arrangement.Center
+
+====================================================
+14. AÑADIR GLOW GENERAL
+====================================================
+
+Tarjeta central:
+
+Glow Verde
+
+Tarjetas laterales:
+
+Glow Verde Suave
+
+Barra inferior:
+
+Glow Azul
+
+Flechas:
+
+Glow Morado
+
+====================================================
+15. CAMBIAR AddGameCover()
+====================================================
+
+Diseño igual al cover.
+
+Mostrar:
+
++
+
+Add Game
+
+con borde gris neón.
+
+====================================================
+16. AJUSTAR TAMAÑOS FINALES
+====================================================
+
+HEADER:
+90dp
+
+CARRUSEL:
+380dp
+
+TARJETA:
+340dp alto
+220dp ancho
+
+BOTTOM BAR:
+95dp
+
+ICONOS NAV:
+28dp
+
+FLECHAS:
+56dp
+
+====================================================
+17. RESULTADO FINAL ESPERADO
+====================================================
+
+Visualmente debe parecer:
+
+90% REDMAGIC Game Space
+10% Xbox 360 NXE Cover Flow
+
+Características:
+
+✓ Fondo aurora azul animado
+✓ Carrusel 3D real
+✓ Tarjetas inclinadas
+✓ Glow neón verde
+✓ Header Android
+✓ Iconos reales de apps
+✓ Nombre dentro de la tarjeta
+✓ Desarrollador dentro de la tarjeta
+✓ Badge Favorito
+✓ Flechas laterales premium
+✓ Barra inferior flotante
+✓ Aspecto AAA premium
+✓ Igual a la imagen de referencia
