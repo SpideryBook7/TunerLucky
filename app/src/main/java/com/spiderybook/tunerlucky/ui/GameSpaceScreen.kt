@@ -28,6 +28,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.*
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -176,28 +181,18 @@ fun GameSpaceScreen() {
         AuroraBackground()
 
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(20.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            Rail(
-                selected = selectedSection,
-                onSelected = { selectedSection = it }
-            )
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
             ) {
-                TopDashboardBar(
-                    stats = stats,
-                    shizukuStatus = shizukuStatus(isReady, hasPermission, isConnected),
-                    onAdd = { showAddGame = true }
-                )
+                AuroraHeader()
 
                 Spacer(modifier = Modifier.height(18.dp))
+
+                Box(modifier = Modifier.weight(1f)) {
 
                 when (selectedSection) {
                     Section.Home -> HomeScreen(
@@ -273,6 +268,13 @@ fun GameSpaceScreen() {
                     Section.Logs -> LogsScreen(logs)
                     Section.About -> AboutScreen()
                 }
+                } // Close Box
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                BottomNavigationMenu(
+                    selected = selectedSection,
+                    onSelected = { selectedSection = it }
+                )
             }
         }
 
@@ -298,99 +300,107 @@ fun GameSpaceScreen() {
 
 @Composable
 private fun AuroraBackground() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(AccentPurple.copy(alpha = 0.24f), Color.Transparent)
-                )
-            )
+    val infiniteTransition = rememberInfiniteTransition(label = "aurora")
+    val offset1 by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1000f,
+        animationSpec = infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "offset1"
     )
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.horizontalGradient(
-                    colors = listOf(AccentBlue.copy(alpha = 0.12f), Color.Transparent)
-                )
-            )
+    val offset2 by infiniteTransition.animateFloat(
+        initialValue = 1000f, targetValue = 0f,
+        animationSpec = infiniteRepeatable(tween(25000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "offset2"
     )
+
+    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+        val w = size.width
+        val h = size.height
+        
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(Color(0xFF0D47A1), Color.Transparent),
+                center = Offset(offset1 % w, h * 0.3f),
+                radius = w * 0.8f
+            )
+        )
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(Color(0xFF00BCD4).copy(alpha=0.4f), Color.Transparent),
+                center = Offset(w - (offset2 % w), h * 0.7f),
+                radius = w * 0.9f
+            )
+        )
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(Color(0xFF4A148C).copy(alpha=0.3f), Color.Transparent),
+                center = Offset(w / 2f, offset1 % h),
+                radius = w * 0.7f
+            )
+        )
+    }
 }
 
 @Composable
-private fun Rail(
+private fun BottomNavigationMenu(
     selected: Section,
     onSelected: (Section) -> Unit
 ) {
-    Column(
+    Row(
         modifier = Modifier
-            .fillMaxHeight()
-            .width(86.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(GlassOverlay)
-            .padding(vertical = 14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .fillMaxWidth()
+            .height(56.dp)
+            .background(Color.Transparent),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Section.entries.forEach { section ->
-            val selectedColor by animateColorAsState(
-                targetValue = if (section == selected) AccentBlue else Color.Transparent,
-                label = "railColor"
-            )
-            IconButton(
-                onClick = { onSelected(section) },
+            val isSelected = section == selected
+            val tint by animateColorAsState(if (isSelected) AccentBlue else Color.Gray)
+            
+            Row(
                 modifier = Modifier
-                    .size(54.dp)
-                    .clip(CircleShape)
-                    .background(selectedColor.copy(alpha = if (section == selected) 0.22f else 0f))
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { onSelected(section) }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = section.icon,
-                    contentDescription = section.title,
-                    tint = if (section == selected) AccentBlue else TextSecondary
-                )
+                Box(
+                    modifier = Modifier.size(24.dp).clip(CircleShape).background(if (isSelected) Color.White else Color.Transparent),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(section.icon, contentDescription = null, tint = if (isSelected) AccentBlue else Color.Gray, modifier = Modifier.size(if (isSelected) 16.dp else 20.dp))
+                }
+                Text(section.title, color = tint, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, fontSize = 14.sp)
             }
         }
     }
 }
 
 @Composable
-private fun TopDashboardBar(
-    stats: StatsData,
-    shizukuStatus: String,
-    onAdd: () -> Unit
-) {
+private fun AuroraHeader() {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "LUCKY TUNER 08",
-                color = TextPrimary,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 28.sp
-            )
-            Text(
-                text = "Meizu Lucky 08 Game Space",
-                color = TextSecondary
-            )
+        // Profile side
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(modifier = Modifier.size(54.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray)) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.align(Alignment.Center))
+            }
+            Column {
+                Text("Fran", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Medium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("G 200 / 2", color = Color.White, fontSize = 14.sp)
+                }
+            }
         }
-
-        StatusChip("CPU", stats.cpuFreq)
-        Spacer(modifier = Modifier.width(8.dp))
-        StatusChip("RAM", stats.ramUsed)
-        Spacer(modifier = Modifier.width(8.dp))
-        StatusChip("BAT", stats.battery)
-        Spacer(modifier = Modifier.width(8.dp))
-        StatusChip("Shizuku", shizukuStatus)
-        Spacer(modifier = Modifier.width(12.dp))
-        Button(onClick = onAdd, shape = RoundedCornerShape(14.dp)) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Anadir")
-        }
+        
+        // Show All side
+        Text("Show All", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Normal)
     }
 }
 
@@ -412,6 +422,7 @@ private fun StatusChip(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun HomeScreen(
     games: List<GameInfo>,
@@ -421,142 +432,140 @@ private fun HomeScreen(
     onLaunch: (GameInfo) -> Unit,
     onAdd: () -> Unit
 ) {
-    Column {
-        selectedGame?.let { game ->
-            HeroGameCard(game = game, onLaunch = { onLaunch(game) })
-        } ?: EmptyLibrary(onAdd)
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard("GPU", stats.gpuFreq, Modifier.weight(1f))
-            MetricCard("TEMP", stats.temperature, Modifier.weight(1f))
-            MetricCard("FPS", stats.fps, Modifier.weight(1f))
-            MetricCard("STORAGE", stats.storage, Modifier.weight(1f))
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-        LibraryCarousel(games, selectedGame, onSelected, onAdd)
+    if (games.isEmpty()) {
+        EmptyLibrary(onAdd)
+        return
     }
-}
 
-@Composable
-private fun HeroGameCard(
-    game: GameInfo,
-    onLaunch: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(244.dp),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfacePrimary)
+    val pagerState = rememberPagerState(pageCount = { games.size + 1 })
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage < games.size) {
+            onSelected(games[pagerState.currentPage])
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Brush.horizontalGradient(listOf(HeroGradientStart, HeroGradientEnd)))
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .padding(28.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(game.name, color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
-                Text(game.packageName, color = Color.White.copy(alpha = 0.72f), maxLines = 1)
-                Spacer(modifier = Modifier.height(14.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ProfileChip(game.profile)
-                    if (game.favorite) ProfileLabel("FAVORITO")
-                    if (game.isEmulator) ProfileLabel("EMULADOR")
-                }
-                Spacer(modifier = Modifier.height(18.dp))
-                Button(onClick = onLaunch, shape = RoundedCornerShape(14.dp)) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("JUGAR")
-                }
-            }
-        }
-    }
-}
+        Spacer(modifier = Modifier.weight(1f))
 
-@Composable
-private fun LibraryCarousel(
-    games: List<GameInfo>,
-    selectedGame: GameInfo?,
-    onSelected: (GameInfo) -> Unit,
-    onAdd: () -> Unit
-) {
-    Text("Biblioteca Aurora", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-    Spacer(modifier = Modifier.height(10.dp))
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { AddGameCard(onAdd) }
-        items(games, key = { it.packageName }) { game ->
-            LibraryGameCard(
-                game = game,
-                selected = game.packageName == selectedGame?.packageName,
-                onClick = { onSelected(game) }
-            )
-        }
-    }
-}
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth().height(320.dp),
+            contentPadding = PaddingValues(horizontal = 120.dp)
+        ) { page ->
+            val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+            val scale = 1f - 0.2f * kotlin.math.abs(pageOffset).coerceAtMost(1f)
+            val alpha = 1f - 0.4f * kotlin.math.abs(pageOffset).coerceAtMost(1f)
 
-@Composable
-private fun AddGameCard(onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .width(158.dp)
-            .height(194.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, AccentBlue),
-        colors = CardDefaults.cardColors(containerColor = SurfaceCard)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(42.dp))
-            Spacer(modifier = Modifier.height(10.dp))
-            Text("Anadir", color = TextPrimary)
-        }
-    }
-}
-
-@Composable
-private fun LibraryGameCard(
-    game: GameInfo,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val scale by animateFloatAsState(targetValue = if (selected) 1.08f else 1f, label = "gameScale")
-    Card(
-        modifier = Modifier
-            .width(158.dp)
-            .height(194.dp)
-            .scale(scale)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) AccentBlue else Color.Transparent),
-        colors = CardDefaults.cardColors(containerColor = SurfaceCard)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(108.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Brush.linearGradient(listOf(SurfaceSecondary, AccentPurple.copy(alpha = 0.45f)))),
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        this.alpha = alpha
+                    }
+                    .width(180.dp)
+                    .height(260.dp)
+                    .clickable {
+                        if (page == pagerState.currentPage) {
+                            if (page < games.size) onLaunch(games[page]) else onAdd()
+                        } else {
+                            scope.launch { pagerState.animateScrollToPage(page) }
+                        }
+                    },
                 contentAlignment = Alignment.Center
             ) {
-                AppIcon(packageName = game.packageName, modifier = Modifier.size(64.dp))
+                if (page < games.size) {
+                    AuroraGameCover(games[page])
+                } else {
+                    AddGameCover()
+                }
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(game.name, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(game.profile.name, color = AccentBlue, fontSize = 11.sp)
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Transparent background text
+        if (pagerState.currentPage < games.size) {
+            val game = games[pagerState.currentPage]
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(game.name, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Medium)
+                Text("${pagerState.currentPage + 1} de ${games.size}", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+            }
+        } else {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Anadir Nuevo", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun AuroraGameCover(game: GameInfo) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // Main Cover
+        Card(
+            modifier = Modifier.fillMaxWidth().height(220.dp),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(2.dp, Color(0xFF4CAF50)), // Green border
+            colors = CardDefaults.cardColors(containerColor = Color.DarkGray)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Android Header
+                Box(modifier = Modifier.fillMaxWidth().height(28.dp).background(Color(0xFF4CAF50)), contentAlignment = Alignment.Center) {
+                    Text("ANDROID", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, letterSpacing = 2.sp)
+                }
+                // Cover body
+                Box(modifier = Modifier.fillMaxWidth().weight(1f).background(Brush.linearGradient(listOf(Color(0xFF2B2B2B), AccentPurple))), contentAlignment = Alignment.Center) {
+                    AppIcon(packageName = game.packageName, modifier = Modifier.size(80.dp))
+                }
+            }
+        }
+        
+        // Reflection Effect
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .graphicsLayer {
+                    scaleY = -1f // Flip upside down
+                    alpha = 0.3f
+                }
+        ) {
+            Card(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.DarkGray)
+            ) {
+                Box(modifier = Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF2B2B2B), AccentPurple))), contentAlignment = Alignment.Center) {
+                    AppIcon(packageName = game.packageName, modifier = Modifier.size(80.dp))
+                }
+            }
+            // Gradient overlay to fade out the reflection
+            Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, BackgroundBlack))))
+        }
+    }
+}
+
+@Composable
+private fun AddGameCover() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Card(
+            modifier = Modifier.fillMaxWidth().height(220.dp),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(2.dp, Color.Gray),
+            colors = CardDefaults.cardColors(containerColor = Color.DarkGray)
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(48.dp))
+            }
         }
     }
 }
