@@ -1,7 +1,9 @@
-package com.spiderybook.tunerlucky.data
+package com.spiderybook.tunerlucky.ui
 
 import android.content.Context
 import android.content.pm.PackageManager
+import com.spiderybook.tunerlucky.data.GameInfo
+import com.spiderybook.tunerlucky.data.PerformanceProfile
 
 object LibraryGameLoader {
 

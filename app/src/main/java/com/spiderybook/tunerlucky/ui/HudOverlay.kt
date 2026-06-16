@@ -1,9 +1,15 @@
 package com.spiderybook.tunerlucky.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,55 +33,82 @@ fun HudOverlay(stats: StatsData) {
 
     Row(
         modifier = Modifier
-            .padding(top = 4.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.5f))
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(top = 6.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF030D22).copy(alpha = 0.85f))
+            .border(1.dp, Color(0xFF4F7BFF).copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (config.showGpu) {
-            HudMetric("GPU", stats.gpuFreq.replace(" MHz", "%"), Color(0xFF4CAF50)) // Simplified mapping
+        if (config.showFps) {
+            HudMetric("FPS", stats.fps, Color(0xFF34C759))
         }
         
         if (config.showCpu) {
             HudSeparator()
-            HudMetric("CPU", stats.cpuFreq, Color(0xFFFFC107))
+            HudMetric("CPU", stats.cpuFreq, Color(0xFFFFB000))
+        }
+
+        if (config.showGpu) {
+            HudSeparator()
+            // Map raw frequency into an estimated display percentage or display raw MHz
+            val gpuDisplay = stats.gpuFreq.replace(" MHz", "M")
+            HudMetric("GPU", gpuDisplay, Color(0xFF57FF74))
         }
         
         if (config.showRam) {
             HudSeparator()
-            HudMetric("RAM", stats.ramUsed, Color(0xFF2196F3))
+            HudMetric("RAM", stats.ramUsed, Color(0xFF00CFFF))
         }
         
         if (config.showBat) {
             HudSeparator()
-            HudMetric("BAT", stats.battery, Color(0xFF9C27B0))
+            HudMetric("BAT", stats.battery, Color(0xFFBF5AF2))
         }
         
         if (config.showTmp) {
             HudSeparator()
-            HudMetric("TMP", stats.temperature, Color(0xFFF44336))
-        }
-        
-        if (config.showFps) {
-            HudSeparator()
-            HudMetric("FPS", stats.fps, Color(0xFFCDDC39))
+            HudMetric("TMP", stats.temperature, Color(0xFFFF375F))
         }
     }
 }
 
 @Composable
-private fun HudMetric(label: String, value: String, labelColor: Color) {
-    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-        if (value.isNotEmpty()) {
-            Text(value, color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+private fun HudMetric(label: String, value: String, accentColor: Color) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        // Neon status indicator dot
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(accentColor)
+        )
+        Text(
+            text = label,
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold
+        )
+        if (value.isNotEmpty() && value != "N/A") {
+            Text(
+                text = value,
+                color = Color.White,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
         }
     }
 }
 
 @Composable
 private fun HudSeparator() {
-    Text("|", color = Color.Gray, fontSize = 8.sp)
+    Box(
+        modifier = Modifier
+            .size(1.dp, 8.dp)
+            .background(Color.White.copy(alpha = 0.2f))
+    )
 }

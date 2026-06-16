@@ -1,6 +1,12 @@
 package com.spiderybook.tunerlucky.ui
 
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
+import android.provider.Settings
+import android.view.WindowManager
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,9 +20,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.MonitorHeart
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Settings as IconSettings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -31,7 +39,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +52,8 @@ import com.spiderybook.tunerlucky.data.StatsData
 import com.spiderybook.tunerlucky.domain.managers.PerformanceManager
 import com.spiderybook.tunerlucky.ui.state.OverlayState
 import com.spiderybook.tunerlucky.ui.theme.AccentBlue
+import com.spiderybook.tunerlucky.shizuku.ShizukuManager
+import kotlinx.coroutines.launch
 
 @Composable
 fun OverlayMenu(
@@ -102,13 +116,30 @@ private fun EdgeSwipeTrigger(onClick: () -> Unit) {
 
     Box(
         modifier = Modifier
-            .width(20.dp)
-            .height(140.dp)
-            .clip(RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp))
-            .background(Color.Black.copy(alpha = 0.2f))
+            .width(8.dp)
+            .height(90.dp)
+            .clip(RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFF4F7BFF).copy(alpha = 0.3f),
+                        Color(0xFF9A57FF).copy(alpha = 0.5f)
+                    )
+                )
+            )
+            .border(
+                width = 1.dp,
+                brush = Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFF4F7BFF).copy(alpha = 0.4f),
+                        Color(0xFF9A57FF).copy(alpha = 0.4f)
+                    )
+                ),
+                shape = RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp)
+            )
             .pointerInput(Unit) {
                 detectHorizontalDragGestures { _, dragAmount ->
-                    if (dragAmount < -5) {
+                    if (dragAmount < -3) {
                         val now = System.currentTimeMillis()
                         if (now - lastSwipeTime < 1000) {
                             onClick()
@@ -132,10 +163,10 @@ private fun EdgeSwipeTrigger(onClick: () -> Unit) {
     ) {
         Box(
             modifier = Modifier
-                .width(2.dp)
-                .height(40.dp)
+                .width(1.5.dp)
+                .height(30.dp)
                 .clip(RoundedCornerShape(1.dp))
-                .background(Color.White.copy(alpha = 0.4f))
+                .background(Color.White.copy(alpha = 0.7f))
         )
     }
 }
@@ -148,6 +179,7 @@ private fun GameHubPanel(
     onExit: () -> Unit
 ) {
     var currentTab by remember { mutableIntStateOf(0) }
+    val shizukuConnected by ShizukuManager.isServiceConnected.collectAsState()
 
     Row(
         modifier = Modifier
@@ -201,17 +233,49 @@ private fun GameHubPanel(
 
         // Content Area
         Box(modifier = Modifier.weight(1f).padding(16.dp)) {
-            when (currentTab) {
-                0 -> PerformanceTab(stats, performanceManager)
-                1 -> SettingsTab(performanceManager)
-                2 -> ProfilesTab(performanceManager)
-                3 -> LSFGTab()
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Shizuku Connection Warning Banner if not connected
+                if (!shizukuConnected) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF8B0000).copy(alpha = 0.20f))
+                            .border(1.dp, Color(0xFFFF375F).copy(alpha = 0.40f), RoundedCornerShape(8.dp))
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = Color(0xFFFF375F),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Shizuku desconectado. Optimización de hardware limitada.",
+                            color = Color(0xFFFFC0C0),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    when (currentTab) {
+                        0 -> PerformanceTab(stats)
+                        1 -> SettingsTab(stats, performanceManager)
+                        2 -> ProfilesTab(stats, performanceManager)
+                        3 -> LSFGTab()
+                    }
+                }
             }
             
             // Fixed Exit Button at top right
             Text(
-                text = "EXIT",
-                color = Color.Red.copy(alpha = 0.8f),
+                text = "SALIR",
+                color = Color.Red.copy(alpha = 0.9f),
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp,
                 modifier = Modifier
@@ -225,7 +289,7 @@ private fun GameHubPanel(
 }
 
 @Composable
-private fun TabIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, isSelected: Boolean, onClick: () -> Unit) {
+private fun TabIcon(icon: ImageVector, isSelected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(48.dp)
@@ -239,17 +303,19 @@ private fun TabIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, isSel
 }
 
 @Composable
-private fun PerformanceTab(stats: StatsData, performanceManager: PerformanceManager) {
+private fun PerformanceTab(stats: StatsData) {
     val hudConfig by OverlayState.hudConfig.collectAsState()
-    var isBoostEnabled by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val libraryManager = remember { com.spiderybook.tunerlucky.data.LibraryManager(context) }
 
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Performance", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text("Rendimiento", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
 
-        // The requested stat cards
+        // The stats display cards
         GameHubStatRow("FPS", stats.fps, "CPU", stats.cpuFreq)
         GameHubStatRow("GPU", stats.gpuFreq, "RAM", stats.ramUsed)
         GameHubStatRow("TMP", stats.temperature, "BAT", stats.battery)
@@ -267,10 +333,13 @@ private fun PerformanceTab(stats: StatsData, performanceManager: PerformanceMana
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("HUD Display", color = Color.White, fontSize = 16.sp)
+                Text("Mostrar HUD en Juego", color = Color.White, fontSize = 16.sp)
                 Switch(
                     checked = hudConfig.isEnabled,
-                    onCheckedChange = { OverlayState.hudConfig.value = hudConfig.copy(isEnabled = it) },
+                    onCheckedChange = { isEnabled ->
+                        OverlayState.hudConfig.value = hudConfig.copy(isEnabled = isEnabled)
+                        scope.launch { libraryManager.setFpsCounter(isEnabled) }
+                    },
                     colors = SwitchDefaults.colors(checkedTrackColor = AccentBlue)
                 )
             }
@@ -291,31 +360,45 @@ private fun PerformanceTab(stats: StatsData, performanceManager: PerformanceMana
                 }
             }
         }
-
-        GameHubToggleRow(
-            title = "Sustained Perf (Root+)",
-            checked = isBoostEnabled,
-            onCheckedChange = { 
-                isBoostEnabled = it
-                if (it) performanceManager.enableBoost() else performanceManager.disableBoost()
-            }
-        )
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
 @Composable
-private fun SettingsTab(performanceManager: PerformanceManager) {
-    var isWifiOptEnabled by remember { mutableStateOf(false) }
-    var isDndEnabled by remember { mutableStateOf(false) }
-    var selectedHz by remember { mutableStateOf(60) }
+private fun SettingsTab(stats: StatsData, performanceManager: PerformanceManager) {
+    val context = LocalContext.current
+    
+    // Read current refresh rate from display
+    val currentHz = remember(stats) {
+        runCatching {
+            val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            @Suppress("DEPRECATION")
+            val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                context.display
+            } else {
+                wm.defaultDisplay
+            }
+            display?.refreshRate?.toInt() ?: 60
+        }.getOrDefault(60)
+    }
+
+    // Read current WiFi Gaming mode (suspend optimizations == 0)
+    val isWifiOptEnabled = remember(stats) {
+        Settings.Global.getInt(context.contentResolver, "wifi_suspend_optimizations_enabled", 1) == 0
+    }
+
+    // Read current DND state
+    val notificationManager = remember { context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager }
+    val isDndActive = remember(stats) {
+        notificationManager.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL
+    }
 
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("System Settings", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text("Ajustes de Sistema", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
 
         // Refresh Rate Selector
         Column(
@@ -325,44 +408,38 @@ private fun SettingsTab(performanceManager: PerformanceManager) {
                 .background(Color.White.copy(alpha = 0.05f))
                 .padding(16.dp)
         ) {
-            Text("Display Refresh Rate", color = Color.White, fontSize = 14.sp)
+            Text("Tasa de Refresco de Pantalla", color = Color.White, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HzButton("60Hz", selectedHz == 60, Modifier.weight(1f)) {
-                    selectedHz = 60
+                HzButton("60Hz", currentHz == 60, Modifier.weight(1f)) {
                     performanceManager.set60Hz()
                 }
-                HzButton("90Hz", selectedHz == 90, Modifier.weight(1f)) {
-                    selectedHz = 90
+                HzButton("90Hz", currentHz == 90, Modifier.weight(1f)) {
                     performanceManager.set90Hz()
                 }
-                HzButton("120Hz", selectedHz == 120, Modifier.weight(1f)) {
-                    selectedHz = 120
+                HzButton("120Hz", currentHz >= 115 && currentHz <= 125, Modifier.weight(1f)) {
                     performanceManager.set120Hz()
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            HzButton("144Hz Extreme", selectedHz == 144, Modifier.fillMaxWidth()) {
-                selectedHz = 144
+            HzButton("144Hz Extremo", currentHz >= 140, Modifier.fillMaxWidth()) {
                 performanceManager.set144Hz()
             }
         }
 
         GameHubToggleRow(
-            title = "WiFi Optimization",
+            title = "Optimización de WiFi",
             checked = isWifiOptEnabled,
-            onCheckedChange = { 
-                isWifiOptEnabled = it
-                if (it) performanceManager.enableWifiGaming() else performanceManager.disableWifiGaming()
+            onCheckedChange = { enable ->
+                if (enable) performanceManager.enableWifiGaming() else performanceManager.disableWifiGaming()
             }
         )
 
         GameHubToggleRow(
-            title = "Do Not Disturb",
-            checked = isDndEnabled,
-            onCheckedChange = { 
-                isDndEnabled = it
-                if (it) performanceManager.enableDoNotDisturb() else performanceManager.disableDoNotDisturb()
+            title = "Modo No Molestar (DND)",
+            checked = isDndActive,
+            onCheckedChange = { enable ->
+                if (enable) performanceManager.enableDoNotDisturb() else performanceManager.disableDoNotDisturb()
             }
         )
 
@@ -379,48 +456,81 @@ private fun SettingsTab(performanceManager: PerformanceManager) {
         ) {
             Icon(Icons.Default.Memory, contentDescription = null, tint = AccentBlue)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Clear Memory Instantly", color = AccentBlue, fontWeight = FontWeight.Bold)
+            Text("Liberar Memoria RAM Instante", color = AccentBlue, fontWeight = FontWeight.Bold)
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
 @Composable
-private fun ProfilesTab(performanceManager: PerformanceManager) {
+private fun ProfilesTab(stats: StatsData, performanceManager: PerformanceManager) {
+    val context = LocalContext.current
+    
+    // Read Hz and WiFi settings to determine active profile
+    val currentHz = remember(stats) {
+        runCatching {
+            val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            @Suppress("DEPRECATION")
+            val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                context.display
+            } else {
+                wm.defaultDisplay
+            }
+            display?.refreshRate?.toInt() ?: 60
+        }.getOrDefault(60)
+    }
+
+    val isWifiOptEnabled = remember(stats) {
+        Settings.Global.getInt(context.contentResolver, "wifi_suspend_optimizations_enabled", 1) == 0
+    }
+
+    val activeProfile = remember(currentHz, isWifiOptEnabled) {
+        when {
+            currentHz == 60 -> PerformanceProfile.BATTERY
+            currentHz >= 140 && isWifiOptEnabled -> PerformanceProfile.EXTREME
+            currentHz >= 115 -> PerformanceProfile.PERFORMANCE
+            else -> PerformanceProfile.BALANCED
+        }
+    }
+
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Smart Profiles", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        Text("Apply automatic performance profiles to tune the system instantly.", color = Color.Gray, fontSize = 12.sp)
+        Text("Perfiles Inteligentes", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text("Aplica configuraciones completas de hardware al instante para optimizar tu sesión.", color = Color.Gray, fontSize = 12.sp)
 
         GameHubActionRow(
-            title = "Battery Saver",
-            subtitle = "60Hz, No Boost",
+            title = "Ahorro de Batería",
+            subtitle = "60Hz, Rendimiento Económico",
             icon = Icons.Default.Tune,
+            isActive = activeProfile == PerformanceProfile.BATTERY,
             onClick = { performanceManager.applyProfile(PerformanceProfile.BATTERY) }
         )
         GameHubActionRow(
-            title = "Balanced",
-            subtitle = "120Hz, Normal",
+            title = "Equilibrado",
+            subtitle = "120Hz, Optimización Estándar",
             icon = Icons.Default.Tune,
+            isActive = activeProfile == PerformanceProfile.BALANCED,
             onClick = { performanceManager.applyProfile(PerformanceProfile.BALANCED) }
         )
         GameHubActionRow(
-            title = "Performance",
-            subtitle = "120Hz, Boost Enabled",
+            title = "Rendimiento",
+            subtitle = "120Hz, Modo Fijo de CPU Activo",
             icon = Icons.Default.Speed,
+            isActive = activeProfile == PerformanceProfile.PERFORMANCE,
             onClick = { performanceManager.applyProfile(PerformanceProfile.PERFORMANCE) }
         )
         GameHubActionRow(
-            title = "Extreme Gaming",
-            subtitle = "144Hz, Boost, Max Optimizations",
+            title = "Gaming Extremo",
+            subtitle = "144Hz, Optimización WiFi y CPU al Máximo",
             icon = Icons.Default.Memory,
+            isActive = activeProfile == PerformanceProfile.EXTREME,
             onClick = { performanceManager.applyProfile(PerformanceProfile.EXTREME) }
         )
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -500,7 +610,8 @@ private fun GameHubToggleRow(title: String, checked: Boolean, onCheckedChange: (
 private fun GameHubActionRow(
     title: String,
     subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
+    isActive: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
@@ -508,14 +619,32 @@ private fun GameHubActionRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .background(Color.White.copy(alpha = 0.05f))
+            .background(if (isActive) AccentBlue.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f))
+            .border(
+                1.dp,
+                if (isActive) AccentBlue else Color.Transparent,
+                RoundedCornerShape(12.dp)
+            )
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = AccentBlue, modifier = Modifier.padding(end = 12.dp))
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (isActive) AccentBlue else Color.White,
+            modifier = Modifier.padding(end = 12.dp)
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Text(subtitle, color = Color.Gray, fontSize = 12.sp)
+        }
+        if (isActive) {
+            Text(
+                "ACTIVO",
+                color = AccentBlue,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -562,6 +691,7 @@ private fun LSFGTab() {
                 title = "Vulkan Compute API",
                 subtitle = "Engine: Ready",
                 icon = Icons.Default.Layers,
+                isActive = false,
                 onClick = {}
             )
             

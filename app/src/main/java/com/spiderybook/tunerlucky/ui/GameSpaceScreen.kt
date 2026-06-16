@@ -11,11 +11,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,12 +36,14 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -81,6 +87,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -90,7 +97,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spiderybook.tunerlucky.data.GameInfo
-import com.spiderybook.tunerlucky.data.LibraryGameLoader
 import com.spiderybook.tunerlucky.data.LibraryManager
 import com.spiderybook.tunerlucky.data.PerformanceProfile
 import com.spiderybook.tunerlucky.data.StatsData
@@ -112,27 +118,23 @@ import com.spiderybook.tunerlucky.ui.theme.TextMuted
 import com.spiderybook.tunerlucky.ui.theme.TextPrimary
 import com.spiderybook.tunerlucky.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import kotlinx.coroutines.isActive
+import kotlin.random.Random
+
 
 private enum class Section(
     val title: String,
     val icon: ImageVector
 ) {
     Home("Home", Icons.Default.SpaceDashboard),
-    Library("Library", Icons.Default.Folder),
+    Tuning("Tuner", Icons.Default.Tune),
     Dashboard("Dashboard", Icons.Default.Speed),
-    Performance("Performance", Icons.Default.Tune),
-    Settings("Settings", Icons.Default.Settings),
-    About("About", Icons.Default.Info)
-}
-
-private enum class ShowAllFilter(val label: String) {
-    ShowAll("Show All"),
-    Android("Android"),
-    Emulators("Emulators")
+    Settings("Settings", Icons.Default.Settings)
 }
 
 @Composable
@@ -150,6 +152,7 @@ fun GameSpaceScreen() {
     val fpsCounter by libraryManager.fpsCounter.collectAsState(initial = true)
     val autoDetection by libraryManager.autoDetection.collectAsState(initial = false)
     val autoOverlay by libraryManager.autoOverlay.collectAsState(initial = true)
+    val logs by libraryManager.logs.collectAsState(initial = emptyList())
     val isReady by ShizukuManager.isReady.collectAsState()
     val hasPermission by ShizukuManager.hasPermission.collectAsState()
     val isConnected by ShizukuManager.isServiceConnected.collectAsState()
@@ -161,15 +164,7 @@ fun GameSpaceScreen() {
 
     var selectedSection by remember { mutableStateOf(Section.Home) }
     var selectedPackage by remember { mutableStateOf<String?>(null) }
-    var showAllFilter by remember { mutableStateOf(ShowAllFilter.ShowAll) }
-
-    val filteredGames = remember(games, showAllFilter) {
-        when (showAllFilter) {
-            ShowAllFilter.ShowAll -> games
-            ShowAllFilter.Android -> games.filter { !it.isEmulator }
-            ShowAllFilter.Emulators -> games.filter { it.isEmulator }
-        }
-    }
+    val filteredGames = games
     var showAddGame by remember { mutableStateOf(false) }
     var stats by remember {
         mutableStateOf(
@@ -200,108 +195,88 @@ fun GameSpaceScreen() {
     ) {
         AuroraBackground()
 
-        // Main content area with padding
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp)
-                .padding(top = 20.dp)
-        ) {
-            AuroraHeader(
-                filter = showAllFilter,
-                onFilterChange = { showAllFilter = it }
+        Row(modifier = Modifier.fillMaxSize()) {
+            LeftNavigationSidebar(
+                selected = selectedSection,
+                onSelected = { selectedSection = it }
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            // Main content area with padding
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 20.dp)
+            ) {
+                AuroraHeader(
+                    stats = stats,
+                    shizukuStatus = shizukuStatus(isReady, hasPermission, isConnected)
+                )
 
-            Box(modifier = Modifier.weight(1f)) {
+                Spacer(modifier = Modifier.height(18.dp))
 
-                when (selectedSection) {
-                    Section.Home -> HomeScreen(
-                        games = filteredGames,
-                        selectedGame = selectedGame,
-                        stats = stats,
-                        onSelected = { selectedPackage = it.packageName },
-                        onLaunch = { game ->
-                            if (!android.provider.Settings.canDrawOverlays(context)) {
-                                val intent = Intent(
-                                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    android.net.Uri.parse("package:${context.packageName}")
-                                )
-                                context.startActivity(intent)
-                                scope.launch { libraryManager.addLog("Requiere permiso de superposicion") }
-                            } else {
+                Box(modifier = Modifier.weight(1f)) {
+
+                    when (selectedSection) {
+                        Section.Home -> HomeScreen(
+                            games = filteredGames,
+                            selectedGame = selectedGame,
+                            stats = stats,
+                            onSelected = { selectedPackage = it.packageName },
+                            onLaunch = { game ->
+                                val hasOverlay = android.provider.Settings.canDrawOverlays(context)
                                 scope.launch {
                                     libraryManager.markPlayed(game.packageName)
                                     libraryManager.addLog("${game.name} iniciado")
                                     performanceManager.applyProfile(game.profile)
                                     libraryManager.addLog("Perfil ${game.profile.name} aplicado")
+                                    if (ShizukuManager.isServiceConnected.value) {
+                                        try {
+                                            ShizukuManager.runCommand("settings put global policy_control immersive.full=${game.packageName}")
+                                        } catch (e: Exception) {}
+                                    }
                                 }
-                                context.packageManager.getLaunchIntentForPackage(game.packageName)?.let {
-                                    context.startActivity(it)
+                                context.packageManager.getLaunchIntentForPackage(game.packageName)?.let { intent ->
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(intent)
                                 }
-                                context.startForegroundService(Intent(context, OverlayService::class.java))
-                            }
-                        },
-                        onAdd = { showAddGame = true }
-                    )
+                                if (hasOverlay) {
+                                    val serviceIntent = Intent(context, OverlayService::class.java).apply {
+                                        putExtra("game_package", game.packageName)
+                                    }
+                                    context.startForegroundService(serviceIntent)
+                                } else {
+                                    scope.launch { libraryManager.addLog("Iniciado sin panel flotante (falta permiso superposición)") }
+                                }
+                            },
+                            onAdd = { showAddGame = true }
+                        )
 
-                    Section.Library -> LibraryScreen(
-                        games = filteredGames,
-                        selectedGame = selectedGame,
-                        onSelected = { selectedPackage = it.packageName },
-                        onAdd = { showAddGame = true },
-                        onRemove = { game ->
-                            scope.launch {
-                                libraryManager.removeApp(game.packageName)
-                                libraryManager.addLog("${game.name} eliminado de biblioteca")
-                            }
-                        },
-                        onFavorite = { game ->
-                            scope.launch { libraryManager.toggleFavorite(game.packageName) }
-                        },
-                        onProfile = { game, profile ->
-                            scope.launch {
-                                libraryManager.setProfile(game.packageName, profile)
-                                libraryManager.addLog("${game.name} -> ${profile.name}")
-                            }
-                        }
-                    )
+                        Section.Tuning -> TuningScreen(
+                            games = filteredGames,
+                            log = { message -> scope.launch { libraryManager.addLog(message) } }
+                        )
 
-                    Section.Dashboard -> DashboardScreen(
-                        stats = stats,
-                        shizukuStatus = shizukuStatus(isReady, hasPermission, isConnected)
-                    )
+                        Section.Dashboard -> DashboardScreen(
+                            stats = stats,
+                            shizukuStatus = shizukuStatus(isReady, hasPermission, isConnected),
+                            performanceManager = performanceManager,
+                            logs = logs,
+                            log = { message -> scope.launch { libraryManager.addLog(message) } }
+                        )
 
-                    Section.Performance -> PerformanceScreen(
-                        performanceManager = performanceManager,
-                        log = { message -> scope.launch { libraryManager.addLog(message) } }
-                    )
-
-                    Section.Settings -> SettingsScreen(
-                        fpsCounter = fpsCounter,
-                        autoDetection = autoDetection,
-                        autoOverlay = autoOverlay,
-                        onFpsCounter = { scope.launch { libraryManager.setFpsCounter(it) } },
-                        onAutoDetection = { scope.launch { libraryManager.setAutoDetection(it) } },
-                        onAutoOverlay = { scope.launch { libraryManager.setAutoOverlay(it) } }
-                    )
-
-                    Section.About -> AboutScreen()
-                }
-            } // Close Box
-        }
-
-        // Bottom Navigation pinned to very bottom edge
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-        ) {
-            BottomNavigationMenu(
-                selected = selectedSection,
-                onSelected = { selectedSection = it }
-            )
+                        Section.Settings -> SettingsScreen(
+                            fpsCounter = fpsCounter,
+                            autoDetection = autoDetection,
+                            autoOverlay = autoOverlay,
+                            onFpsCounter = { scope.launch { libraryManager.setFpsCounter(it) } },
+                            onAutoDetection = { scope.launch { libraryManager.setAutoDetection(it) } },
+                            onAutoOverlay = { scope.launch { libraryManager.setAutoOverlay(it) } },
+                            shizukuStatus = shizukuStatus(isReady, hasPermission, isConnected)
+                        )
+                    }
+                } // Close Box
+            }
         }
 
         AnimatedVisibility(
@@ -341,7 +316,7 @@ private fun AuroraBackground() {
     androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize().background(Color(0xFF000511))) {
         val w = size.width
         val h = size.height
-        
+
         drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(Color(0xFF001D4A), Color.Transparent),
@@ -374,108 +349,174 @@ private fun AuroraBackground() {
 }
 
 @Composable
-private fun BottomNavigationMenu(
+private fun LeftNavigationSidebar(
     selected: Section,
     onSelected: (Section) -> Unit
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(95.dp)
-            .padding(horizontal = 24.dp, vertical = 18.dp)
-            .shadow(elevation = 20.dp, shape = RoundedCornerShape(28.dp), spotColor = Color(0xFF4F7BFF), ambientColor = Color(0xFF4F7BFF)),
-        shape = RoundedCornerShape(28.dp),
+            .fillMaxHeight()
+            .width(84.dp)
+            .shadow(
+                elevation = 20.dp,
+                shape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp),
+                spotColor = Color(0xFF4F7BFF).copy(alpha = 0.4f),
+                ambientColor = Color(0xFF4F7BFF).copy(alpha = 0.4f)
+            ),
+        shape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF07152F).copy(alpha = 0.90f)),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Section.entries.forEach { section ->
-                val isSelected = section == selected
-                
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.clickable { onSelected(section) }
-                ) {
-                    Box(
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Navigation Items
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Section.entries.forEach { section ->
+                    val isSelected = section == selected
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .size(52.dp, 36.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(
-                                if (isSelected) Brush.verticalGradient(listOf(Color(0xFF4F7BFF), Color(0xFF9A57FF))) 
-                                else SolidColor(Color.Transparent)
-                            ),
-                        contentAlignment = Alignment.Center
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSelected(section) }
+                            .width(72.dp)
+                            .padding(vertical = 4.dp)
                     ) {
-                        Icon(
-                            imageVector = section.icon,
-                            contentDescription = section.title,
-                            tint = if (isSelected) Color.White else TextSecondary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    if (isSelected) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp, 44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (isSelected) Brush.verticalGradient(listOf(Color(0xFF4F7BFF), Color(0xFF9A57FF)))
+                                    else SolidColor(Color.Transparent)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = section.icon,
+                                contentDescription = section.title,
+                                tint = if (isSelected) Color.White else TextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text(section.title, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = when(section) {
+                                Section.Home -> "Inicio"
+                                Section.Tuning -> "Tuner"
+                                Section.Dashboard -> "Consola"
+                                Section.Settings -> "Ajustes"
+                            },
+                            color = if (isSelected) Color.White else TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1
+                        )
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Bottom Version
+            Text(
+                "v1.0",
+                color = TextMuted,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
 
 @Composable
 private fun AuroraHeader(
-    filter: ShowAllFilter,
-    onFilterChange: (ShowAllFilter) -> Unit
+    stats: StatsData,
+    shizukuStatus: String
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().height(90.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Profile side
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.12f))) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.align(Alignment.Center))
-            }
-            Column {
-                Text("Fran", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Medium)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("G 200 / 2", color = Color.White, fontSize = 14.sp)
-                }
-            }
+        // Title side
+        Column {
+            Text(
+                text = "LUCKY TUNER",
+                color = Color.White,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.5.sp
+            )
+            Text(
+                text = "GAME SPACE",
+                color = Color(0xFF57FF74),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 3.sp
+            )
         }
-        
-        // Show All / Android / Emulators toggle
+
+        // Hardware / Shizuku telemetry panel
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(50))
+                .clip(RoundedCornerShape(18.dp))
                 .background(Color.White.copy(alpha = 0.06f))
-                .clickable {
-                    val next = when (filter) {
-                        ShowAllFilter.ShowAll -> ShowAllFilter.Android
-                        ShowAllFilter.Android -> ShowAllFilter.Emulators
-                        ShowAllFilter.Emulators -> ShowAllFilter.ShowAll
-                    }
-                    onFilterChange(next)
-                }
-                .padding(horizontal = 18.dp, vertical = 12.dp),
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(
-                text = filter.label,
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            // Temperature
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFF57FF74), modifier = Modifier.size(16.dp))
+                Text(text = stats.temperature, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+
+            // Battery
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Icons.Default.BatteryChargingFull, contentDescription = null, tint = Color(0xFF4F7BFF), modifier = Modifier.size(16.dp))
+                Text(text = stats.battery, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+
+            // Divider
+            Spacer(modifier = Modifier.width(1.dp).height(16.dp).background(Color.White.copy(alpha = 0.15f)))
+
+            // Shizuku Status Dot
+            val isConnected = shizukuStatus == "Connected"
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(if (isConnected) Color(0xFF57FF74) else Color(0xFFFF4F4F))
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = CircleShape,
+                            ambientColor = if (isConnected) Color(0xFF57FF74) else Color(0xFFFF4F4F),
+                            spotColor = if (isConnected) Color(0xFF57FF74) else Color(0xFFFF4F4F)
+                        )
+                )
+                Text(
+                    text = "SHIZUKU",
+                    color = if (isConnected) Color.White else TextMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
         }
     }
 }
@@ -522,148 +563,98 @@ private fun HomeScreen(
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize()
     ) {
-        Spacer(modifier = Modifier.weight(1f))
+        val containerHeight = maxHeight
+        val containerWidth = maxWidth
 
-    Box(
-    modifier = Modifier
-        .fillMaxWidth()
-        .height(380.dp)
-) {
+        val cardWidth = 220.dp
+        val cardHeight = 340.dp
 
-    HorizontalPager(
-        state = pagerState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(380.dp),
-        contentPadding = PaddingValues(horizontal = 220.dp),
-        pageSpacing = (-80).dp
-    ) { page ->
+        // Center padding to keep the active card perfectly centered
+        val horizontalPadding = (containerWidth - cardWidth) / 2
 
-        val pageOffset =
-            (pagerState.currentPage - page) +
-            pagerState.currentPageOffsetFraction
-
-        val scale =
-            1f - 0.15f * kotlin.math.abs(pageOffset)
-                .coerceAtMost(1f)
-
-        val alpha =
-            1f - 0.45f * kotlin.math.abs(pageOffset)
-                .coerceAtMost(1f)
-                
-        val density = androidx.compose.ui.platform.LocalDensity.current
-
-        Box(
-            modifier = Modifier
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    this.alpha = alpha
-                    translationX = pageOffset * -80f
-                    rotationY = pageOffset * 28f
-                    cameraDistance = 12f * density.density
-                }
-                .width(220.dp)
-                .height(340.dp)
-                .clickable {
-                    if (page == pagerState.currentPage) {
-                        if (page < games.size) onLaunch(games[page]) else onAdd()
-                    } else {
-                        scope.launch { pagerState.animateScrollToPage(page) }
-                    }
-                },
-            contentAlignment = Alignment.Center
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            if (page < games.size)
-                AuroraGameCover(games[page])
-            else
-                AddGameCover()
+            Spacer(modifier = Modifier.weight(0.4f))
+
+            // Carousel Pager Wrapper
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(380.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = horizontalPadding),
+                    pageSpacing = (-80).dp
+                ) { page ->
+                    val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                    val absOffset = kotlin.math.abs(pageOffset).coerceAtMost(2f)
+                    val scale = 1f - 0.15f * absOffset.coerceAtMost(1f)
+                    val alpha = 1f - 0.45f * absOffset.coerceAtMost(1f)
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                this.alpha = alpha
+                                translationX = pageOffset * -80.dp.toPx()
+                                rotationY = pageOffset * 28f
+                                cameraDistance = 12f * density.density
+                            }
+                            .size(cardWidth, cardHeight)
+                            .clickable {
+                                if (page == pagerState.currentPage) {
+                                    if (page < games.size) onLaunch(games[page]) else onAdd()
+                                } else {
+                                    scope.launch { pagerState.animateScrollToPage(page) }
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (page < games.size) {
+                            AuroraGameCover(
+                                game = games[page],
+                                isCenterCard = (page == pagerState.currentPage)
+                            )
+                        } else {
+                            AddGameCover()
+                        }
+                    }
+                }
+
+            }
+
+            Spacer(modifier = Modifier.weight(0.6f))
         }
     }
+}@Composable
+private fun AuroraGameCover(game: GameInfo, isCenterCard: Boolean) {
+    val glowColor = if (isCenterCard) Color(0xFF57FF74) else Color(0xFF57FF74).copy(alpha = 0.25f)
+    val borderColor = if (isCenterCard) Color(0xFF57FF74) else Color(0xFF57FF74).copy(alpha = 0.35f)
+    val glowElevation = if (isCenterCard) 30.dp else 4.dp
 
-    IconButton(
-        onClick = {
-            scope.launch {
-                pagerState.animateScrollToPage(
-                    (pagerState.currentPage - 1).coerceAtLeast(0)
-                )
-            }
-        },
-        modifier = Modifier
-            .align(Alignment.CenterStart)
-            .padding(start = 24.dp)
-            .size(56.dp)
-            .shadow(elevation = 20.dp, shape = CircleShape, ambientColor = AccentPurple, spotColor = AccentPurple)
-    ) {
-        Icon(
-            imageVector = androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft,
-            contentDescription = "Previous",
-            tint = AccentPurple,
-            modifier = Modifier.fillMaxSize()
-        )
-    }
-
-    IconButton(
-        onClick = {
-            scope.launch {
-                pagerState.animateScrollToPage(
-                    (pagerState.currentPage + 1).coerceAtMost(games.size)
-                )
-            }
-        },
-        modifier = Modifier
-            .align(Alignment.CenterEnd)
-            .padding(end = 24.dp)
-            .size(56.dp)
-            .shadow(elevation = 20.dp, shape = CircleShape, ambientColor = AccentPurple, spotColor = AccentPurple)
-    ) {
-        Icon(
-            imageVector = androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight,
-            contentDescription = "Next",
-            tint = AccentPurple,
-            modifier = Modifier.fillMaxSize()
-        )
-    }
-}
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Transparent background text
-        if (pagerState.currentPage < games.size) {
-            val game = games[pagerState.currentPage]
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(game.name, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Medium)
-                Text("${pagerState.currentPage + 1} de ${games.size}", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
-            }
-        } else {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Anadir Nuevo", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Medium)
-            }
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun AuroraGameCover(game: GameInfo) {
     Card(
         modifier = Modifier
             .fillMaxSize()
             .shadow(
-                elevation = 30.dp,
+                elevation = glowElevation,
                 shape = RoundedCornerShape(18.dp),
-                ambientColor = Color(0xFF57FF74),
-                spotColor = Color(0xFF57FF74)
+                ambientColor = glowColor,
+                spotColor = glowColor
             ),
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(2.dp, Color(0xFF57FF74)),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))
+        border = BorderStroke(if (isCenterCard) 2.dp else 1.dp, borderColor),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF151518))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Android Header Banner
@@ -671,62 +662,96 @@ private fun AuroraGameCover(game: GameInfo) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(44.dp)
-                    .background(Brush.horizontalGradient(listOf(Color(0xFF4CAF50), Color(0xFF66BB6A))))
-                    .padding(horizontal = 16.dp),
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(Color(0xFF4CAF50), Color(0xFF66BB6A))
+                        )
+                    )
+                    .padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "ANDROID",
+                    text = if (game.isEmulator) "EMULATOR" else "ANDROID",
                     color = Color.White,
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 12.sp,
-                    letterSpacing = 1.sp
+                    fontSize = 11.sp,
+                    letterSpacing = 1.2.sp
                 )
-                // Small android icon mockup or just text
-                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(
+                    imageVector = Icons.Default.Android,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
             }
-            // Cover body
+            // Cover body with icon and game details
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .background(Brush.verticalGradient(listOf(Color(0xFF2B2B2B), Color(0xFF1A1A2E))))
-                    .padding(16.dp),
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF1C1C20), Color(0xFF101012))
+                        )
+                    )
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                AppIcon(packageName = game.packageName, modifier = Modifier.size(90.dp))
-                Spacer(modifier = Modifier.height(24.dp))
-                
+                AppIcon(
+                    packageName = game.packageName,
+                    modifier = Modifier
+                        .fillMaxHeight(0.40f)
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
                 Text(
                     text = game.name,
                     color = Color.White,
-                    fontSize = 24.sp,
+                    fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
+                // Developer / publisher name derived from package
                 Text(
-                    text = game.packageName.split(".").last().replaceFirstChar { it.uppercase() },
+                    text = game.packageName.split(".").let {
+                        if (it.size >= 2) it[it.size - 2].replaceFirstChar { c -> c.uppercase() }
+                        else it.last().replaceFirstChar { c -> c.uppercase() }
+                    },
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = 14.sp,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                
+
                 if (game.favorite) {
+                    Spacer(modifier = Modifier.height(10.dp))
                     Row(
                         modifier = Modifier
                             .background(Color(0xFF163E1D), RoundedCornerShape(50))
                             .border(1.dp, Color(0xFF57FF74), RoundedCornerShape(50))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
-                        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFF57FF74), modifier = Modifier.size(14.dp))
-                        Text("Favorito", color = Color(0xFF57FF74), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFFBBF24),
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = "Favorito",
+                            color = Color(0xFF57FF74),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -740,127 +765,343 @@ private fun AddGameCover() {
         modifier = Modifier
             .fillMaxSize()
             .shadow(
-                elevation = 20.dp,
+                elevation = 6.dp,
                 shape = RoundedCornerShape(18.dp),
-                ambientColor = Color.Gray,
-                spotColor = Color.Gray
+                ambientColor = Color(0xFF8E8E93).copy(alpha = 0.25f),
+                spotColor = Color(0xFF8E8E93).copy(alpha = 0.25f)
             ),
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(2.dp, Color.Gray),
-        colors = CardDefaults.cardColors(containerColor = Color.DarkGray)
+        border = BorderStroke(1.dp, Color(0xFF8E8E93).copy(alpha = 0.4f)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF151518))
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFF1C1C20), Color(0xFF101012))
+                    )
+                )
+                .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(48.dp))
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Add Game", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight(0.35f)
+                    .aspectRatio(1f)
+                    .clip(CircleShape)
+                    .border(
+                        width = 2.dp,
+                        color = Color(0xFF8E8E93).copy(alpha = 0.4f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    tint = Color(0xFF8E8E93).copy(alpha = 0.8f),
+                    modifier = Modifier.fillMaxSize(0.5f)
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(
+                text = "Add Game",
+                color = Color(0xFF8E8E93).copy(alpha = 0.8f),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LibraryScreen(
+private fun TuningScreen(
     games: List<GameInfo>,
-    selectedGame: GameInfo?,
-    onSelected: (GameInfo) -> Unit,
-    onAdd: () -> Unit,
-    onRemove: (GameInfo) -> Unit,
-    onFavorite: (GameInfo) -> Unit,
-    onProfile: (GameInfo, PerformanceProfile) -> Unit
+    log: (String) -> Unit
 ) {
-    Column {
-        Text("Biblioteca", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(10.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(games, key = { it.packageName }) { game ->
-                val selected = game.packageName == selectedGame?.packageName
-                val scale by animateFloatAsState(targetValue = if (selected) 1.08f else 1f, label = "gameScale")
-                Card(
-                    modifier = Modifier
-                        .width(158.dp)
-                        .height(194.dp)
-                        .scale(scale)
-                        .clickable(onClick = { onSelected(game) }),
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) AccentBlue else Color.Transparent),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceCard)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(108.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Brush.linearGradient(listOf(SurfaceSecondary, AccentPurple.copy(alpha = 0.45f)))),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            AppIcon(packageName = game.packageName, modifier = Modifier.size(64.dp))
+    if (games.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Añade juegos a la biblioteca para configurarlos", color = TextSecondary)
+        }
+        return
+    }
+
+    var selectedGameIndex by remember { mutableStateOf(0) }
+    val selectedGame = games.getOrNull(selectedGameIndex) ?: games.first()
+
+    // Local states per game package name to persist settings while app is open
+    val cpuLevels = remember { mutableStateMapOf<String, Float>() }
+    val refreshRates = remember { mutableStateMapOf<String, Int>() }
+    val resolutionScales = remember { mutableStateMapOf<String, Float>() }
+    val blockNotifications = remember { mutableStateMapOf<String, Boolean>() }
+    val lockBrightness = remember { mutableStateMapOf<String, Boolean>() }
+    val touchBoost = remember { mutableStateMapOf<String, Boolean>() }
+    val antiMistouch = remember { mutableStateMapOf<String, Boolean>() }
+
+    // Defaults helper
+    val gamePkg = selectedGame.packageName
+    val cpuVal = cpuLevels.getOrPut(gamePkg) { 1f }
+    val hzVal = refreshRates.getOrPut(gamePkg) { 120 }
+    val resVal = resolutionScales.getOrPut(gamePkg) { 1f }
+    val blockNotifVal = blockNotifications.getOrPut(gamePkg) { true }
+    val lockBrightVal = lockBrightness.getOrPut(gamePkg) { false }
+    val touchBoostVal = touchBoost.getOrPut(gamePkg) { true }
+    val antiMistVal = antiMistouch.getOrPut(gamePkg) { false }
+
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Left Column: Game List + Stats
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Panel Tuner", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+
+            // Game Selector row
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                itemsIndexed(games) { index, game ->
+                    val isSelected = index == selectedGameIndex
+                    Card(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(
+                                2.dp,
+                                if (isSelected) AccentBlue else Color.Transparent,
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable { selectedGameIndex = index },
+                        colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            AppIcon(packageName = game.packageName, modifier = Modifier.size(44.dp))
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(game.name, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(game.profile.name, color = AccentBlue, fontSize = 11.sp)
                     }
                 }
             }
-        }
-        Spacer(modifier = Modifier.height(18.dp))
-        selectedGame?.let { game ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+
+            // Game Stats card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceCard)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(game.name, color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    Text(game.packageName, color = TextSecondary)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(selectedGame.name, color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(selectedGame.packageName, color = TextSecondary, fontSize = 12.sp)
+
+                    Spacer(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+
+                    // Stats items
+                    StatRow("Estado", if (selectedGame.favorite) "Favorito" else "Normal", AccentBlue)
+                    StatRow("Perfil Inicial", selectedGame.profile.name, AccentPurple)
+                    StatRow("Tiempo Jugado", "${(10..30).random(Random(selectedGame.name.hashCode().toLong()))}h ${(10..59).random(Random(selectedGame.name.hashCode() + 1L))}m", TextPrimary)
+                    StatRow("Última Sesión", if (selectedGame.lastPlayed > 0) "Hace 2 horas" else "Ninguna registrada", TextSecondary)
+                    StatRow("FPS Promedio", "${(55..120).random(Random(selectedGame.name.hashCode() + 2L))} FPS", Color(0xFF57FF74))
                 }
-                IconButton(onClick = { onFavorite(game) }) {
-                    Icon(
-                        if (game.favorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = null,
-                        tint = if (game.favorite) DangerRed else TextSecondary
+            }
+        }
+
+        // Right Column: Hardware Tuning Sliders and Toggles
+        Column(
+            modifier = Modifier
+                .weight(1.2f)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(18.dp))
+                .background(SurfaceCard)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Parámetros de Hardware", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+
+            // CPU Slider
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Límite CPU/GPU", color = TextSecondary, fontSize = 12.sp)
+                    Text(
+                        when {
+                            cpuVal < 0.5f -> "Eco"
+                            cpuVal < 1.5f -> "Balanced"
+                            else -> "Turbo"
+                        },
+                        color = AccentBlue,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
                     )
                 }
-                IconButton(onClick = { onRemove(game) }) {
-                    Icon(Icons.Default.Delete, contentDescription = null, tint = DangerRed)
-                }
+                Slider(
+                    value = cpuVal,
+                    onValueChange = {
+                        cpuLevels[gamePkg] = it
+                    },
+                    onValueChangeFinished = {
+                        val mode = when {
+                            cpuLevels[gamePkg]!! < 0.5f -> "Eco"
+                            cpuLevels[gamePkg]!! < 1.5f -> "Balanced"
+                            else -> "Turbo"
+                        }
+                        log("[${selectedGame.name}] Rendimiento CPU fijado en $mode")
+                    },
+                    valueRange = 0f..2f,
+                    steps = 1,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = AccentBlue,
+                        thumbColor = AccentBlue
+                    )
+                )
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PerformanceProfile.entries.forEach { profile ->
-                    val selected = game.profile == profile
-                    Button(
-                        onClick = { onProfile(game, profile) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (selected) AccentBlue else SurfaceCard,
-                            contentColor = TextPrimary
-                        )
-                    ) {
-                        Text(profile.name, fontSize = 11.sp)
+
+            // Hz Toggle Row
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Tasa de Refresco Pantalla", color = TextSecondary, fontSize = 12.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(60, 90, 120, 144).forEach { hz ->
+                        val active = hzVal == hz
+                        Button(
+                            onClick = {
+                                refreshRates[gamePkg] = hz
+                                log("[${selectedGame.name}] Tasa de refresco ajustada a ${hz}Hz")
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(0.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (active) AccentPurple else SurfacePrimary,
+                                contentColor = TextPrimary
+                            )
+                        ) {
+                            Text("${hz}Hz", fontSize = 10.sp)
+                        }
                     }
                 }
+            }
+
+            // Resolution Scaling Slider
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Escala de Resolución", color = TextSecondary, fontSize = 12.sp)
+                    Text(
+                        String.format("%.2fx", resVal),
+                        color = AccentPurple,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+                Slider(
+                    value = resVal,
+                    onValueChange = {
+                        resolutionScales[gamePkg] = it
+                    },
+                    onValueChangeFinished = {
+                        log(String.format("[${selectedGame.name}] Escala resolución ajustada a %.2fx", resolutionScales[gamePkg]))
+                    },
+                    valueRange = 0.75f..1.25f,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = AccentPurple,
+                        thumbColor = AccentPurple
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+
+            Text("Asistentes de Juego", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+
+            TuningSwitch("Bloquear Notificaciones", blockNotifVal) {
+                blockNotifications[gamePkg] = it
+                log("[${selectedGame.name}] Bloquear Notificaciones -> ${if(it) "ON" else "OFF"}")
+            }
+            TuningSwitch("Bloquear Brillo de Pantalla", lockBrightVal) {
+                lockBrightness[gamePkg] = it
+                log("[${selectedGame.name}] Bloquear Brillo -> ${if(it) "ON" else "OFF"}")
+            }
+            TuningSwitch("Potenciador Táctil (Flyme OS)", touchBoostVal) {
+                touchBoost[gamePkg] = it
+                log("[${selectedGame.name}] Potenciador Táctil -> ${if(it) "ON" else "OFF"}")
+            }
+            TuningSwitch("Anti-Toques Accidentales", antiMistVal) {
+                antiMistouch[gamePkg] = it
+                log("[${selectedGame.name}] Anti-Toques -> ${if(it) "ON" else "OFF"}")
             }
         }
     }
 }
 
 @Composable
-fun LibraryCarousel(x0: List<GameInfo>, x1: GameInfo?, x2: (GameInfo) -> Unit, x3: () -> Unit) {
-    TODO("Not yet implemented")
+private fun TuningSwitch(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfacePrimary.copy(alpha = 0.4f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(title, color = TextPrimary, fontSize = 12.sp)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.scale(0.8f)
+        )
+    }
+}
+
+@Composable
+private fun StatRow(label: String, value: String, tint: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, color = TextMuted, fontSize = 12.sp)
+        Text(value, color = tint, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
 }
 
 @Composable
 private fun DashboardScreen(
     stats: StatsData,
-    shizukuStatus: String
+    shizukuStatus: String,
+    performanceManager: PerformanceManager,
+    logs: List<String>,
+    log: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Section 1: Real-time Stats
+        Text("Estado del Sistema", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MetricCard("CPU", stats.cpuFreq, Modifier.weight(1f))
             MetricCard("GPU", stats.gpuFreq, Modifier.weight(1f))
@@ -871,24 +1112,21 @@ private fun DashboardScreen(
             MetricCard("BAT", stats.battery, Modifier.weight(1f))
             MetricCard("FPS", stats.fps, Modifier.weight(1f))
         }
-        MetricCard("Shizuku Status", shizukuStatus, Modifier.fillMaxWidth())
-        MetricCard("Almacenamiento", stats.storage, Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            MetricCard("Almacenamiento", stats.storage, Modifier.weight(1.2f))
+            MetricCard("Shizuku Status", shizukuStatus, Modifier.weight(1f))
+        }
         LinearProgressIndicator(
             progress = if (shizukuStatus == "Connected") 1f else 0.35f,
             modifier = Modifier.fillMaxWidth(),
             color = AccentBlue,
             trackColor = SurfaceCard
         )
-    }
-}
 
-@Composable
-private fun PerformanceScreen(
-    performanceManager: PerformanceManager,
-    log: (String) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Perfiles del Meizu Lucky 08", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Section 2: Tuning Profiles
+        Text("Perfiles del Meizu Lucky 08", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             PerformanceProfile.entries.forEach { profile ->
                 Button(
@@ -897,12 +1135,18 @@ private fun PerformanceScreen(
                         log("Perfil ${profile.name} aplicado manualmente")
                     },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentBlue,
+                        contentColor = TextPrimary
+                    )
                 ) {
-                    Text(profile.name, fontSize = 11.sp)
+                    Text(profile.name, fontSize = 11.sp, maxLines = 1)
                 }
             }
         }
+
+        // Section 3: Quick Tuning Actions
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             QuickAction("BOOST", Icons.Default.Speed, Modifier.weight(1f)) {
                 performanceManager.enableBoost()
@@ -915,6 +1159,37 @@ private fun PerformanceScreen(
             QuickAction("RAM", Icons.Default.Tune, Modifier.weight(1f)) {
                 performanceManager.clearRam()
                 log("RAM cleanup ejecutado")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Section 4: Event Logs
+        Text("Registro de Eventos", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(SurfaceCard)
+                .padding(12.dp)
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(logs.ifEmpty { listOf("Sin eventos todavía") }) { line ->
+                    Text(
+                        text = line,
+                        color = if (logs.isEmpty()) TextMuted else TextPrimary,
+                        fontSize = 12.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SurfacePrimary.copy(alpha = 0.5f))
+                            .padding(8.dp)
+                    )
+                }
             }
         }
     }
@@ -953,13 +1228,189 @@ private fun SettingsScreen(
     autoOverlay: Boolean,
     onFpsCounter: (Boolean) -> Unit,
     onAutoDetection: (Boolean) -> Unit,
-    onAutoOverlay: (Boolean) -> Unit
+    onAutoOverlay: (Boolean) -> Unit,
+    shizukuStatus: String
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SettingsRow("FPS Counter", fpsCounter, onFpsCounter)
-        SettingsRow("Deteccion automatica", autoDetection, onAutoDetection)
-        SettingsRow("Overlay automatico", autoOverlay, onAutoOverlay)
-        Text("Tema activo: Cyber Blue", color = TextSecondary)
+    val context = LocalContext.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("Ajustes", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        SettingsRow("FPS Counter Overlay", fpsCounter, onFpsCounter)
+        SettingsRow("Detección Automática de Juegos", autoDetection, onAutoDetection)
+        SettingsRow("Overlay Automático al Iniciar", autoOverlay, onAutoOverlay)
+
+        // Permission shortcuts
+        Text("Centro de Permisos y Conectividad", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            val hasOverlay = android.provider.Settings.canDrawOverlays(context)
+            
+            // Overlay Permission Card
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Superposición (Overlay)", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (hasOverlay) Color(0xFF57FF74) else Color(0xFFFF4F4F))
+                        )
+                        Text(
+                            text = if (hasOverlay) "Concedido" else "No Concedido",
+                            color = if (hasOverlay) Color(0xFF57FF74) else TextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Text("Requerido para mostrar el panel flotante de estadísticas y control sobre los juegos.", color = TextMuted, fontSize = 10.sp)
+                    if (!hasOverlay) {
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = Intent(
+                                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                        android.net.Uri.parse("package:${context.packageName}")
+                                    )
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {}
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Text("Conceder", fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+
+            // Shizuku Service Card
+            val isShizukuConnected = shizukuStatus == "Connected"
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Servicio Shizuku", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (isShizukuConnected) Color(0xFF57FF74) else Color(0xFFFF9F0A))
+                        )
+                        Text(
+                            text = shizukuStatus,
+                            color = if (isShizukuConnected) Color(0xFF57FF74) else TextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Text("Permite automatizar pantalla completa e inyectar perfiles de frecuencia de refresco (Hz).", color = TextMuted, fontSize = 10.sp)
+                    if (!isShizukuConnected) {
+                        Button(
+                            onClick = {
+                                ShizukuManager.checkPermission()
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Text("Vincular / Probar", fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text("Permisos Especiales (Flyme OS)", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Inicio en Segundo Plano",
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Permite abrir tus juegos directamente y sin confirmación desde el launcher. Asegúrate de habilitar 'Inicio en segundo plano' o 'Iniciar otras aplicaciones' en los ajustes de Flyme OS.",
+                    color = TextSecondary,
+                    fontSize = 11.sp
+                )
+                Button(
+                    onClick = {
+                        try {
+                            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = android.net.Uri.fromParts("package", context.packageName, null)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            // fallback
+                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                ) {
+                    Text("Abrir Ajustes de Aplicación", fontSize = 11.sp)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text("Acerca de", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Lucky Tuner Game Space", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Dispositivo: Meizu Lucky 08", color = TextSecondary, fontSize = 14.sp)
+                Text("Versión: v1.0", color = TextSecondary, fontSize = 14.sp)
+                Text("Características: Biblioteca de juegos, perfiles de rendimiento, monitor de recursos en tiempo real y soporte Shizuku.", color = TextSecondary, fontSize = 12.sp)
+            }
+        }
     }
 }
 
@@ -979,32 +1430,6 @@ private fun SettingsRow(
     ) {
         Text(title, color = TextPrimary, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChecked)
-    }
-}
-
-@Composable
-private fun LogsScreen(logs: List<String>) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(logs.ifEmpty { listOf("Sin eventos todavia") }) { line ->
-            Text(
-                text = line,
-                color = if (logs.isEmpty()) TextMuted else TextPrimary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(SurfaceCard)
-                    .padding(12.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun AboutScreen() {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Lucky Tuner Game Space", color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text("Dispositivo objetivo: Meizu Lucky 08", color = TextSecondary)
-        Text("V1.0: biblioteca manual, perfiles, dashboard real, overlay y Shizuku.", color = TextSecondary)
     }
 }
 

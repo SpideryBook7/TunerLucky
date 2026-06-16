@@ -54,6 +54,10 @@ class OverlayService :
     // HUD View
     private var hudView: View? = null
     private var hudParams: WindowManager.LayoutParams? = null
+    private var isHudAdded = false
+
+    // Game package tracker
+    private var gamePackage: String? = null
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val viewModelStoreInternal = ViewModelStore()
@@ -83,6 +87,7 @@ class OverlayService :
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification())
         
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         statsMonitor = StatsMonitor(this)
         
         // Start stats polling centrally
@@ -93,6 +98,15 @@ class OverlayService :
             }
         }
 
+        // Initialize HUD config from persistent storage
+        val libraryManager = com.spiderybook.tunerlucky.data.LibraryManager(this)
+        serviceScope.launch {
+            libraryManager.fpsCounter.collect { enabled ->
+                android.util.Log.d("OverlayService", "fpsCounter collected from DB: $enabled")
+                OverlayState.hudConfig.value = OverlayState.hudConfig.value.copy(isEnabled = enabled)
+            }
+        }
+
         // Auto-close monitor
         serviceScope.launch {
             // Give the game time to launch before we start checking
@@ -100,21 +114,35 @@ class OverlayService :
             while (isActive) {
                 try {
                     val focus = com.spiderybook.tunerlucky.shizuku.ShizukuManager.runCommand("dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp'")
-                    if (focus.contains("com.spiderybook.tunerlucky") || 
-                        focus.contains("launcher", ignoreCase = true) || 
-                        focus.contains("nexuslauncher", ignoreCase = true) ||
-                        focus.contains("systemui", ignoreCase = true)) {
+                    if (focus.isNotBlank() && !focus.startsWith("Service not connected")) {
+                        // Check if focused application shifted away
+                        val isGameFocused = gamePackage?.let { focus.contains(it) } ?: false
+                        val isLauncherFocused = focus.contains("com.spiderybook.tunerlucky")
+                        val isSystemOrImeFocused = focus.contains("systemui", ignoreCase = true) ||
+                                focus.contains("inputmethod", ignoreCase = true) ||
+                                focus.contains("permissioncontroller", ignoreCase = true) ||
+                                focus.contains("android", ignoreCase = true)
+                        val isGeneralLauncherFocused = focus.contains("launcher", ignoreCase = true) || focus.contains("nexuslauncher", ignoreCase = true)
                         
-                        // Wait to ensure it's not a transient state (like opening a notification panel)
-                        delay(2000)
-                        val checkAgain = com.spiderybook.tunerlucky.shizuku.ShizukuManager.runCommand("dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp'")
-                        if (checkAgain.contains("com.spiderybook.tunerlucky") || 
-                            checkAgain.contains("launcher", ignoreCase = true) || 
-                            checkAgain.contains("nexuslauncher", ignoreCase = true) ||
-                            checkAgain.contains("systemui", ignoreCase = true)) {
+                        if (!isGameFocused && !isLauncherFocused && !isSystemOrImeFocused && !isGeneralLauncherFocused) {
+                            // Wait to ensure it's not a transient state (like opening a notification panel)
+                            delay(2000)
+                            val checkAgain = com.spiderybook.tunerlucky.shizuku.ShizukuManager.runCommand("dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp'")
+                            val isGameFocusedAgain = gamePackage?.let { checkAgain.contains(it) } ?: false
+                            val isLauncherFocusedAgain = checkAgain.contains("com.spiderybook.tunerlucky")
+                            val isSystemOrImeFocusedAgain = checkAgain.contains("systemui", ignoreCase = true) ||
+                                    checkAgain.contains("inputmethod", ignoreCase = true) ||
+                                    checkAgain.contains("permissioncontroller", ignoreCase = true) ||
+                                    checkAgain.contains("android", ignoreCase = true)
+                            val isGeneralLauncherFocusedAgain = checkAgain.contains("launcher", ignoreCase = true) || checkAgain.contains("nexuslauncher", ignoreCase = true)
                             
-                            stopSelf()
-                            break
+                            if (!isGameFocusedAgain && !isLauncherFocusedAgain && !isSystemOrImeFocusedAgain && !isGeneralLauncherFocusedAgain) {
+                                try {
+                                    com.spiderybook.tunerlucky.shizuku.ShizukuManager.runCommand("settings put global policy_control null")
+                                } catch (_: Exception) {}
+                                stopSelf()
+                                break
+                            }
                         }
                     }
                 } catch (e: Exception) {}
@@ -126,9 +154,14 @@ class OverlayService :
         showHud()
     }
 
-    private fun showSidebar() {
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent?.getStringExtra("game_package")?.let {
+            gamePackage = it
+        }
+        return START_STICKY
+    }
 
+    private fun showSidebar() {
         val flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
@@ -196,24 +229,31 @@ class OverlayService :
         }
 
         hudView = composeView
-        windowManager.addView(hudView, hudParams)
 
-        // Observe config to hide/show window completely
-        serviceScope.launch {
+        // Observe config to add/remove HUD view dynamically
+        serviceScope.launch(Dispatchers.Main) {
             OverlayState.hudConfig.collect { config ->
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                    if (hudParams != null && hudView != null) {
-                        if (config.isEnabled) {
-                            hudParams?.width = WindowManager.LayoutParams.WRAP_CONTENT
-                            hudParams?.height = WindowManager.LayoutParams.WRAP_CONTENT
-                        } else {
-                            hudParams?.width = 0
-                            hudParams?.height = 0
+                android.util.Log.d("OverlayService", "hudConfig collected: isEnabled=${config.isEnabled}, isHudAdded=$isHudAdded")
+                if (hudView != null && hudParams != null) {
+                    if (config.isEnabled) {
+                        if (!isHudAdded) {
+                            try {
+                                windowManager.addView(hudView, hudParams)
+                                isHudAdded = true
+                                android.util.Log.d("OverlayService", "HUD view successfully added to WindowManager")
+                            } catch (e: Exception) {
+                                android.util.Log.e("OverlayService", "Failed to add HUD view", e)
+                            }
                         }
-                        try {
-                            windowManager.updateViewLayout(hudView, hudParams)
-                        } catch (e: Exception) {
-                            // View might be removed
+                    } else {
+                        if (isHudAdded) {
+                            try {
+                                windowManager.removeView(hudView)
+                                isHudAdded = false
+                                android.util.Log.d("OverlayService", "HUD view successfully removed from WindowManager")
+                            } catch (e: Exception) {
+                                android.util.Log.e("OverlayService", "Failed to remove HUD view", e)
+                            }
                         }
                     }
                 }
@@ -259,9 +299,14 @@ class OverlayService :
         sidebarView?.let {
             try { windowManager.removeView(it) } catch (_: Exception) {}
         }
-        hudView?.let {
-            try { windowManager.removeView(it) } catch (_: Exception) {}
+        if (isHudAdded && hudView != null) {
+            try { windowManager.removeView(hudView) } catch (_: Exception) {}
+            isHudAdded = false
         }
+        
+        try {
+            com.spiderybook.tunerlucky.shizuku.ShizukuManager.runCommand("settings put global policy_control null")
+        } catch (_: Exception) {}
 
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
